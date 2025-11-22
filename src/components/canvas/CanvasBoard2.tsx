@@ -24,6 +24,13 @@ export function CanvasBoard2() {
     const [currentTool, setCurrentTool] = React.useState<CanvasTool>('select')
     const [isPanning, setIsPanning] = React.useState(false)
     const [panStart, setPanStart] = React.useState({ x: 0, y: 0 })
+    const [draggedShape, setDraggedShape] = React.useState<{
+        shapeId: string
+        startX: number
+        startY: number
+        initialX: number
+        initialY: number
+    } | null>(null)
 
     // Load canvas data when paper changes
     useEffect(() => {
@@ -215,6 +222,17 @@ export function CanvasBoard2() {
         if (hitShape) {
             console.log('Selecting shape:', hitShape.id)
             editor.setSelection([hitShape.id])
+
+            // Start dragging if in select mode
+            if (currentTool === 'select') {
+                setDraggedShape({
+                    shapeId: hitShape.id,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    initialX: hitShape.x,
+                    initialY: hitShape.y,
+                })
+            }
         } else {
             console.log('Clearing selection')
             editor.selectNone()
@@ -222,22 +240,36 @@ export function CanvasBoard2() {
     }
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isPanning) return
+        // Handle panning
+        if (isPanning) {
+            const dx = e.clientX - panStart.x
+            const dy = e.clientY - panStart.y
 
-        const dx = e.clientX - panStart.x
-        const dy = e.clientY - panStart.y
+            const camera = editor.getCamera()
+            editor.setCamera({
+                x: camera.x + dx,
+                y: camera.y + dy,
+            })
 
-        const camera = editor.getCamera()
-        editor.setCamera({
-            x: camera.x + dx,
-            y: camera.y + dy,
-        })
+            setPanStart({ x: e.clientX, y: e.clientY })
+            return
+        }
 
-        setPanStart({ x: e.clientX, y: e.clientY })
+        // Handle shape dragging
+        if (draggedShape) {
+            const dx = (e.clientX - draggedShape.startX) / state.camera.zoom
+            const dy = (e.clientY - draggedShape.startY) / state.camera.zoom
+
+            editor.updateShape(draggedShape.shapeId, {
+                x: draggedShape.initialX + dx,
+                y: draggedShape.initialY + dy,
+            })
+        }
     }
 
     const handleMouseUp = () => {
         setIsPanning(false)
+        setDraggedShape(null)
     }
 
 
