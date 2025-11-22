@@ -15,10 +15,11 @@ export function StylePanel({ editor }: StylePanelProps) {
 
     // Helper to update style
     const updateStyle = (key: keyof StyleProps, value: any) => {
-        editor.updateShapes(selectedShapes.map(s => ({
-            id: s.id,
-            props: { ...s.props, [key]: value }
-        })))
+        selectedShapes.forEach(s => {
+            editor.updateShape(s.id, {
+                props: { ...s.props, [key]: value } as any
+            })
+        })
     }
 
     // Get common values (naive approach: take first)

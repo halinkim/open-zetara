@@ -196,8 +196,8 @@ export class ArrowShapeUtil extends ShapeUtil<ArrowShape> {
         return {
             x: shape.x + minX,
             y: shape.y + minY,
-            width: Math.max(1, maxX - minX),
-            height: Math.max(1, maxY - minY)
+            w: Math.max(1, maxX - minX),
+            h: Math.max(1, maxY - minY)
         }
     }
 

@@ -4,6 +4,7 @@ import { CanvasTool } from '../CanvasToolbar'
 import { BaseShape, PointerShape, Shape, ConnectionAnchor } from '@/lib/canvas/shapes/types'
 import { useAppStore } from '@/lib/store'
 import { PointerSnapshotAsset } from '@/lib/canvas/assets/types'
+import { createAssetId } from '@/lib/canvas/assets/utils'
 
 interface DragState {
     shapeId: string
@@ -442,8 +443,8 @@ export function useCanvasInteraction(
 
         // Handle resizing
         if (resizing) {
-            const dx = (e.clientX - resizing.startX) / camera.zoom
-            const dy = (e.clientY - resizing.startY) / camera.zoom
+            const dx = worldPoint.x - resizing.startX
+            const dy = worldPoint.y - resizing.startY
             const { handle, initialBounds } = resizing
 
             let newX = initialBounds.x
@@ -580,6 +581,15 @@ export function useCanvasInteraction(
         const hitShape = editor.getShapeAtPoint(worldPoint)
         if (hitShape && hitShape.type === 'text') {
             editor.setEditingShape(hitShape.id)
+        } else if (hitShape && hitShape.type === 'pointer') {
+            // Navigate to PDF location
+            const asset = editor.getAsset(hitShape.props.assetId)
+            if (asset && asset.type === 'pointer-snapshot') {
+                setNavigationTarget({
+                    pdfId: asset.meta.pdfId,
+                    page: asset.meta.page,
+                })
+            }
         } else if (!hitShape) {
             // Create text on double click
             editor.createShape('text', {
@@ -588,8 +598,6 @@ export function useCanvasInteraction(
                 width: 200,
                 height: 100,
             })
-            // Auto-edit newly created text?
-            // Need to know the ID. createShape returns it.
         }
     }
 
@@ -605,6 +613,46 @@ export function useCanvasInteraction(
         const rect = containerRef.current.getBoundingClientRect()
         const screenPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top }
         const worldPoint = editor.screenToWorld(screenPoint)
+
+        // Handle PDF snapshots
+        const pointerData = e.dataTransfer.getData('application/zetara-pointer')
+        if (pointerData) {
+            try {
+                const data = JSON.parse(pointerData)
+                console.log('Dropped pointer data:', data)
+
+                if (data.image && data.rect) {
+                    // Create asset for the snapshot
+                    const assetId = createAssetId()
+                    editor.createAsset({
+                        id: assetId,
+                        type: 'pointer-snapshot',
+                        src: data.image,
+                        width: data.rect.width,
+                        height: data.rect.height,
+                        meta: {
+                            pdfId: data.pdfId,
+                            page: data.page,
+                            rect: data.rect,
+                        },
+                    })
+
+                    // Create pointer shape
+                    editor.createShape('pointer', {
+                        x: worldPoint.x,
+                        y: worldPoint.y,
+                        width: data.rect.width,
+                        height: data.rect.height,
+                        props: {
+                            assetId,
+                        },
+                    })
+                }
+            } catch (err) {
+                console.error('Failed to parse pointer data:', err)
+            }
+            return
+        }
 
         // Handle library items
         const libraryData = e.dataTransfer.getData('application/x-tldraw-library')

@@ -37,7 +37,7 @@ export function ResizeHandles({ shape, zoom, onResizeStart }: ResizeHandlesProps
                         stroke="#0d99ff"
                         strokeWidth={strokeWidth}
                         style={{ cursor: `${handle}-resize`, pointerEvents: 'all' }}
-                        onMouseDown={(e) => onResizeStart(e, handle, shape)}
+                        data-resize-handle={handle}
                     />
                 )
             })}
