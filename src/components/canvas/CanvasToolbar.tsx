@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { MousePointer2, Type, Square, Circle, ArrowRight, GitBranch } from 'lucide-react';
+import { MousePointer2, Type, Square, Circle, ArrowRight, Eraser, Minus } from 'lucide-react';
 
-export type CanvasTool = 'select' | 'text' | 'rect' | 'circle' | 'arrow' | 'connector';
+export type CanvasTool = 'select' | 'text' | 'rect' | 'circle' | 'arrow' | 'line' | 'eraser';
 
 interface CanvasToolbarProps {
     currentTool: CanvasTool;
@@ -17,7 +17,8 @@ export function CanvasToolbar({ currentTool, onToolChange }: CanvasToolbarProps)
         { id: 'rect', icon: <Square size={18} />, label: 'Rectangle' },
         { id: 'circle', icon: <Circle size={18} />, label: 'Circle' },
         { id: 'arrow', icon: <ArrowRight size={18} />, label: 'Arrow' },
-        { id: 'connector', icon: <GitBranch size={18} />, label: 'Connector' },
+        { id: 'line', icon: <Minus size={18} />, label: 'Line' },
+        { id: 'eraser', icon: <Eraser size={18} />, label: 'Eraser' },
     ];
 
     return (

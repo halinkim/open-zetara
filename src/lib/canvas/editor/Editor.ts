@@ -67,7 +67,8 @@ export class Editor {
             props?: Partial<Extract<Shape, { type: T }>['props']>
         } = {}
     ): Extract<Shape, { type: T }> {
-        const shape = createShapeHelper(type, partial)
+        const maxIndex = Math.max(0, ...Object.values(this.state.shapes).map(s => s.index || 0))
+        const shape = createShapeHelper(type, { ...partial, index: maxIndex + 1 } as any)
         this.state.shapes[shape.id] = shape as Shape
         this.notifyListeners()
         return shape as Extract<Shape, { type: T }>
@@ -79,6 +80,20 @@ export class Editor {
 
         this.state.shapes[id] = { ...shape, ...partial }
         this.notifyListeners()
+    }
+
+    updateShapes(updates: { id: ShapeId, partial: Partial<Shape> }[]): void {
+        let changed = false
+        updates.forEach(({ id, partial }) => {
+            const shape = this.state.shapes[id]
+            if (shape) {
+                this.state.shapes[id] = { ...shape, ...partial }
+                changed = true
+            }
+        })
+        if (changed) {
+            this.notifyListeners()
+        }
     }
 
     deleteShape(id: ShapeId): void {
@@ -137,6 +152,40 @@ export class Editor {
             this.state.selectedIds.delete(id)
         } else {
             this.state.selectedIds.add(id)
+        }
+        this.notifyListeners()
+    }
+
+    sendBackward(ids: ShapeId[]): void {
+        const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
+        const selectedSet = new Set(ids)
+
+        for (let i = 1; i < shapes.length; i++) {
+            if (selectedSet.has(shapes[i].id) && !selectedSet.has(shapes[i - 1].id)) {
+                const temp = shapes[i].index
+                shapes[i].index = shapes[i - 1].index
+                shapes[i - 1].index = temp
+
+                this.state.shapes[shapes[i].id] = shapes[i]
+                this.state.shapes[shapes[i - 1].id] = shapes[i - 1]
+            }
+        }
+        this.notifyListeners()
+    }
+
+    bringForward(ids: ShapeId[]): void {
+        const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
+        const selectedSet = new Set(ids)
+
+        for (let i = shapes.length - 2; i >= 0; i--) {
+            if (selectedSet.has(shapes[i].id) && !selectedSet.has(shapes[i + 1].id)) {
+                const temp = shapes[i].index
+                shapes[i].index = shapes[i + 1].index
+                shapes[i + 1].index = temp
+
+                this.state.shapes[shapes[i].id] = shapes[i]
+                this.state.shapes[shapes[i + 1].id] = shapes[i + 1]
+            }
         }
         this.notifyListeners()
     }

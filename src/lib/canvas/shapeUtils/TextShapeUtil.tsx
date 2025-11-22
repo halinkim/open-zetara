@@ -1,19 +1,19 @@
-/**
- * TextShapeUtil - Handles rendering and interaction for text shapes
- */
-
 import React from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import { ShapeUtil } from './ShapeUtil'
-import { TextShape, TextShapeProps, Bounds } from '../shapes/types'
+import { TextShape, TextShapeProps } from '../shapes/types'
+import 'katex/dist/katex.min.css'
 
 export class TextShapeUtil extends ShapeUtil<TextShape> {
     readonly type = 'text' as const
 
     getDefaultProps(): TextShapeProps {
         return {
-            text: 'Text',
+            text: 'Double click to edit',
             fontSize: 16,
-            color: '#ffffff',
+            color: 'black',
             fontFamily: 'Inter, sans-serif',
             textAlign: 'left',
         }
@@ -23,44 +23,43 @@ export class TextShapeUtil extends ShapeUtil<TextShape> {
         const { id, x, y, width, height, props, opacity } = shape
         const { text, fontSize, color, fontFamily, textAlign } = props
 
-        // Text needs to be rendered as SVG foreignObject, not HTML div
-        return React.createElement('foreignObject', {
-            key: id,
-            x,
-            y,
-            width,
-            height,
-        }, React.createElement('div', {
-            xmlns: "http://www.w3.org/1999/xhtml",
-            style: {
-                width: '100%',
-                height: '100%',
-                fontSize,
-                color,
-                fontFamily,
-                textAlign,
-                opacity,
-                padding: '4px',
-                boxSizing: 'border-box',
-            }
-        }, text))
+        return (
+            <foreignObject
+                key={id}
+                x={x}
+                y={y}
+                width={width}
+                height={height}
+                style={{ overflow: 'visible' }}
+            >
+                <div
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        fontSize,
+                        color,
+                        fontFamily,
+                        textAlign,
+                        opacity,
+                        padding: '4px',
+                        boxSizing: 'border-box',
+                        overflow: 'hidden',
+                        userSelect: 'none'
+                    }}
+                    className="markdown-body"
+                >
+                    <ReactMarkdown
+                        remarkPlugins={[remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                    >
+                        {text}
+                    </ReactMarkdown>
+                </div>
+            </foreignObject>
+        )
     }
 
     override canEdit(): boolean {
         return true
-    }
-
-    override onResize(
-        shape: TextShape,
-        info: { initialBounds: Bounds; newBounds: Bounds; handle: any }
-    ): Partial<TextShape> {
-        const { newBounds } = info
-
-        return {
-            x: newBounds.x,
-            y: newBounds.y,
-            width: newBounds.w,
-            height: newBounds.h,
-        }
     }
 }

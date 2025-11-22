@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Editor } from '@/lib/canvas/editor/Editor'
 import { CanvasTool } from '../CanvasToolbar'
-import { BaseShape, PointerShape, Shape } from '@/lib/canvas/shapes/types'
+import { BaseShape, PointerShape, Shape, ConnectionAnchor } from '@/lib/canvas/shapes/types'
 import { useAppStore } from '@/lib/store'
 import { PointerSnapshotAsset } from '@/lib/canvas/assets/types'
 
@@ -21,6 +21,146 @@ interface ResizeState {
     initialBounds: { x: number; y: number; width: number; height: number }
 }
 
+export interface SnapLine {
+    type: 'horizontal' | 'vertical'
+    position: number
+    start: number
+    end: number
+}
+
+function getNearestAnchor(shape: any, point: { x: number, y: number }): ConnectionAnchor | null {
+    const anchors: ConnectionAnchor[] = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw']
+    const { x, y, width, height } = shape
+    const threshold = 20
+
+    const getPos = (anchor: ConnectionAnchor) => {
+        switch (anchor) {
+            case 'n': return { x: x + width / 2, y }
+            case 'ne': return { x: x + width, y }
+            case 'e': return { x: x + width, y: y + height / 2 }
+            case 'se': return { x: x + width, y: y + height }
+            case 's': return { x: x + width / 2, y: y + height }
+            case 'sw': return { x, y: y + height }
+            case 'w': return { x, y: y + height / 2 }
+            case 'nw': return { x, y }
+        }
+        return { x, y }
+    }
+
+    let closestAnchor: ConnectionAnchor | null = null
+    let minDist = Infinity
+
+    for (const anchor of anchors) {
+        const pos = getPos(anchor)
+        const dist = Math.sqrt((pos.x - point.x) ** 2 + (pos.y - point.y) ** 2)
+        if (dist < threshold && dist < minDist) {
+            minDist = dist
+            closestAnchor = anchor
+        }
+    }
+
+    return closestAnchor
+}
+
+function getSnapLines(
+    shape: { x: number, y: number, width: number, height: number },
+    otherShapes: Shape[]
+): { lines: SnapLine[], snapX: number | null, snapY: number | null } {
+    const threshold = 5
+    const lines: SnapLine[] = []
+    let snapX: number | null = null
+    let snapY: number | null = null
+
+    const shapeLeft = shape.x
+    const shapeCenter = shape.x + shape.width / 2
+    const shapeRight = shape.x + shape.width
+    const shapeTop = shape.y
+    const shapeMiddle = shape.y + shape.height / 2
+    const shapeBottom = shape.y + shape.height
+
+    for (const other of otherShapes) {
+        const otherLeft = other.x
+        const otherCenter = other.x + other.width / 2
+        const otherRight = other.x + other.width
+        const otherTop = other.y
+        const otherMiddle = other.y + other.height / 2
+        const otherBottom = other.y + other.height
+
+        // Horizontal Snapping (Vertical Lines)
+        const xTargets = [otherLeft, otherCenter, otherRight]
+
+        for (const target of xTargets) {
+            if (Math.abs(shapeLeft - target) < threshold) {
+                snapX = target
+                lines.push({ type: 'vertical', position: target, start: Math.min(shapeTop, otherTop), end: Math.max(shapeBottom, otherBottom) })
+            } else if (Math.abs(shapeRight - target) < threshold) {
+                snapX = target - shape.width
+                lines.push({ type: 'vertical', position: target, start: Math.min(shapeTop, otherTop), end: Math.max(shapeBottom, otherBottom) })
+            } else if (Math.abs(shapeCenter - target) < threshold) {
+                snapX = target - shape.width / 2
+                lines.push({ type: 'vertical', position: target, start: Math.min(shapeTop, otherTop), end: Math.max(shapeBottom, otherBottom) })
+            }
+        }
+
+        // Vertical Snapping (Horizontal Lines)
+        const yTargets = [otherTop, otherMiddle, otherBottom]
+
+        for (const target of yTargets) {
+            if (Math.abs(shapeTop - target) < threshold) {
+                snapY = target
+                lines.push({ type: 'horizontal', position: target, start: Math.min(shapeLeft, otherLeft), end: Math.max(shapeRight, otherRight) })
+            } else if (Math.abs(shapeBottom - target) < threshold) {
+                snapY = target - shape.height
+                lines.push({ type: 'horizontal', position: target, start: Math.min(shapeLeft, otherLeft), end: Math.max(shapeRight, otherRight) })
+            } else if (Math.abs(shapeMiddle - target) < threshold) {
+                snapY = target - shape.height / 2
+                lines.push({ type: 'horizontal', position: target, start: Math.min(shapeLeft, otherLeft), end: Math.max(shapeRight, otherRight) })
+            }
+        }
+    }
+
+    return { lines, snapX, snapY }
+}
+
+function getPointSnapLines(
+    point: { x: number, y: number },
+    otherShapes: Shape[]
+): { lines: SnapLine[], snapX: number | null, snapY: number | null } {
+    const threshold = 5
+    const lines: SnapLine[] = []
+    let snapX: number | null = null
+    let snapY: number | null = null
+
+    for (const other of otherShapes) {
+        const otherLeft = other.x
+        const otherCenter = other.x + other.width / 2
+        const otherRight = other.x + other.width
+        const otherTop = other.y
+        const otherMiddle = other.y + other.height / 2
+        const otherBottom = other.y + other.height
+
+        // Horizontal Snapping (Vertical Lines)
+        const xTargets = [otherLeft, otherCenter, otherRight]
+        for (const target of xTargets) {
+            if (Math.abs(point.x - target) < threshold) {
+                snapX = target
+                lines.push({ type: 'vertical', position: target, start: Math.min(point.y, otherTop), end: Math.max(point.y, otherBottom) })
+            }
+        }
+
+        // Vertical Snapping (Horizontal Lines)
+        const yTargets = [otherTop, otherMiddle, otherBottom]
+        for (const target of yTargets) {
+            if (Math.abs(point.y - target) < threshold) {
+                snapY = target
+                lines.push({ type: 'horizontal', position: target, start: Math.min(point.x, otherLeft), end: Math.max(point.x, otherRight) })
+            }
+        }
+    }
+
+    return { lines, snapX, snapY }
+}
+
 export function useCanvasInteraction(
     editor: Editor,
     containerRef: React.RefObject<HTMLDivElement | null>,
@@ -31,6 +171,10 @@ export function useCanvasInteraction(
     const [panStart, setPanStart] = useState({ x: 0, y: 0 })
     const [draggedShape, setDraggedShape] = useState<DragState | null>(null)
     const [resizing, setResizing] = useState<ResizeState | null>(null)
+    const [drawingArrow, setDrawingArrow] = useState<{ id: string, startBinding?: any } | null>(null)
+    const [erasing, setErasing] = useState(false)
+    const [draggingHandle, setDraggingHandle] = useState<{ shapeId: string, handle: 'start' | 'end' } | null>(null)
+    const [snapLines, setSnapLines] = useState<SnapLine[]>([])
     const { setNavigationTarget } = useAppStore()
 
     // Handle wheel for zoom/pan
@@ -76,12 +220,37 @@ export function useCanvasInteraction(
         // Only handle left click for tools
         if (e.button !== 0) return
 
+        // Check for handle click
+        const target = e.target as HTMLElement | SVGElement
+        const handle = target.getAttribute('data-handle')
+        const shapeId = target.getAttribute('data-shape-id')
+
+        if (handle && shapeId && (handle === 'start' || handle === 'end')) {
+            setDraggingHandle({ shapeId, handle: handle as 'start' | 'end' })
+            setIsPanning(false)
+            return
+        }
+
         // Always exit editing mode on click (unless double click handled separately)
         editor.setEditingShape(null)
 
         const rect = containerRef.current.getBoundingClientRect()
         const screenPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top }
         const worldPoint = editor.screenToWorld(screenPoint)
+
+        // Check for resize handle
+        const resizeHandle = target.getAttribute('data-resize-handle')
+        if (resizeHandle && editor.getSelectedShapeIds().length === 1) {
+            const shape = editor.getSelectedShapes()[0]
+            setResizing({
+                shapeId: shape.id,
+                handle: resizeHandle,
+                startX: worldPoint.x,
+                startY: worldPoint.y,
+                initialBounds: { x: shape.x, y: shape.y, width: shape.width, height: shape.height }
+            })
+            return
+        }
 
         // Handle tool-specific actions
         if (currentTool === 'text') {
@@ -117,6 +286,44 @@ export function useCanvasInteraction(
             return
         }
 
+        if (currentTool === 'arrow' || currentTool === 'line') {
+            // Check for start binding
+            const hitShape = editor.getShapeAtPoint(worldPoint)
+            let startBinding = undefined
+            if (hitShape) {
+                const anchor = getNearestAnchor(hitShape, worldPoint)
+                if (anchor) {
+                    startBinding = { shapeId: hitShape.id, anchor }
+                }
+            }
+
+            const shape = editor.createShape('arrow', {
+                x: worldPoint.x,
+                y: worldPoint.y,
+                props: {
+                    start: { x: 0, y: 0 },
+                    end: { x: 0, y: 0 },
+                    startBinding,
+                    arrowheadEnd: currentTool === 'arrow' ? 'arrow' : 'none',
+                    strokeWidth: 2,
+                    color: 'black',
+                    bend: 0,
+                    arrowheadStart: 'none'
+                }
+            })
+            setDrawingArrow({ id: shape.id, startBinding })
+            return
+        }
+
+        if (currentTool === 'eraser') {
+            setErasing(true)
+            const hitShape = editor.getShapeAtPoint(worldPoint)
+            if (hitShape) {
+                editor.deleteShapes([hitShape.id])
+            }
+            return
+        }
+
         // Hit test for selection
         const hitShape = editor.getShapeAtPoint(worldPoint)
 
@@ -125,8 +332,6 @@ export function useCanvasInteraction(
                 if (e.shiftKey || e.ctrlKey) {
                     editor.toggleSelection(hitShape.id)
                 } else {
-                    // If clicking an unselected shape without modifiers, select only that shape
-                    // If clicking a selected shape, keep selection (for dragging multiple)
                     if (!editor.getSelectedShapeIds().includes(hitShape.id)) {
                         editor.setSelection([hitShape.id])
                     }
@@ -151,6 +356,10 @@ export function useCanvasInteraction(
 
     const handleMouseMove = (e: React.MouseEvent) => {
         const camera = editor.getCamera()
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (!rect) return
+        const screenPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+        const worldPoint = editor.screenToWorld(screenPoint)
 
         // Handle panning
         if (isPanning) {
@@ -163,6 +372,71 @@ export function useCanvasInteraction(
             })
 
             setPanStart({ x: e.clientX, y: e.clientY })
+            return
+        }
+
+        // Handle handle dragging
+        if (draggingHandle) {
+            const shape = editor.getShape(draggingHandle.shapeId)
+            if (shape && shape.type === 'arrow') {
+                const otherShapes = editor.getShapes().filter(s => s.id !== shape.id)
+                const { lines, snapX, snapY } = getPointSnapLines(worldPoint, otherShapes)
+
+                let newX = worldPoint.x
+                let newY = worldPoint.y
+
+                if (snapX !== null) newX = snapX
+                if (snapY !== null) newY = snapY
+                setSnapLines(lines)
+
+                const relativePoint = {
+                    x: newX - shape.x,
+                    y: newY - shape.y
+                }
+                editor.updateShape(shape.id, {
+                    props: {
+                        ...shape.props,
+                        [draggingHandle.handle]: relativePoint
+                    }
+                })
+            }
+            return
+        }
+
+        // Handle arrow drawing
+        if (drawingArrow) {
+            // Check for end binding
+            const hitShape = editor.getShapeAtPoint(worldPoint)
+            let endBinding = undefined
+            if (hitShape && hitShape.id !== drawingArrow.id) {
+                const anchor = getNearestAnchor(hitShape, worldPoint)
+                if (anchor) {
+                    endBinding = { shapeId: hitShape.id, anchor }
+                }
+            }
+
+            const shape = editor.getShape(drawingArrow.id)
+            if (shape && shape.type === 'arrow') {
+                editor.updateShape(drawingArrow.id, {
+                    props: {
+                        ...shape.props,
+                        end: {
+                            x: worldPoint.x - shape.x,
+                            y: worldPoint.y - shape.y
+                        },
+                        endBinding
+                    }
+                })
+            }
+            return
+        }
+
+        // Handle erasing
+        if (erasing) {
+            const hitShape = editor.getShapeAtPoint(worldPoint)
+            if (hitShape) {
+                editor.deleteShapes([hitShape.id])
+            }
             return
         }
 
@@ -239,9 +513,29 @@ export function useCanvasInteraction(
             const dx = (e.clientX - draggedShape.startX) / camera.zoom
             const dy = (e.clientY - draggedShape.startY) / camera.zoom
 
+            let newX = draggedShape.initialX + dx
+            let newY = draggedShape.initialY + dy
+
+            // Snap logic
+            const otherShapes = editor.getShapes().filter(s => s.id !== draggedShape.shapeId)
+            const currentShape = editor.getShape(draggedShape.shapeId)
+
+            if (currentShape) {
+                const { lines, snapX, snapY } = getSnapLines(
+                    { x: newX, y: newY, width: currentShape.width, height: currentShape.height },
+                    otherShapes
+                )
+
+                if (snapX !== null) newX = snapX
+                if (snapY !== null) newY = snapY
+                setSnapLines(lines)
+            } else {
+                setSnapLines([])
+            }
+
             editor.updateShape(draggedShape.shapeId, {
-                x: draggedShape.initialX + dx,
-                y: draggedShape.initialY + dy,
+                x: newX,
+                y: newY,
             })
         }
     }
@@ -250,50 +544,52 @@ export function useCanvasInteraction(
         setIsPanning(false)
         setDraggedShape(null)
         setResizing(null)
+        setSnapLines([])
+        setDraggingHandle(null)
+
+        if (drawingArrow) {
+            const shape = editor.getShape(drawingArrow.id)
+            if (shape && shape.type === 'arrow') {
+                const start = shape.props.start || { x: 0, y: 0 }
+                const end = shape.props.end || { x: 0, y: 0 }
+                const dist = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2)
+                if (dist < 10) {
+                    editor.deleteShapes([shape.id])
+                }
+            }
+            setDrawingArrow(null)
+            setCurrentTool('select')
+        }
+
+        if (erasing) {
+            setErasing(false)
+        }
     }
 
     const handleResizeStart = (e: React.MouseEvent, handle: string, shape: BaseShape<any, any>) => {
         e.stopPropagation()
-        setResizing({
-            shapeId: shape.id,
-            handle,
-            startX: e.clientX,
-            startY: e.clientY,
-            initialBounds: {
-                x: shape.x,
-                y: shape.y,
-                width: shape.width,
-                height: shape.height,
-            },
-        })
+        // This is now handled in handleMouseDown via data-resize-handle
     }
 
     const handleDoubleClick = (e: React.MouseEvent) => {
         if (!containerRef.current) return
-
         const rect = containerRef.current.getBoundingClientRect()
         const screenPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top }
         const worldPoint = editor.screenToWorld(screenPoint)
 
         const hitShape = editor.getShapeAtPoint(worldPoint)
-        if (hitShape) {
-            // Text editing
-            if (hitShape.type === 'text') {
-                editor.setEditingShape(hitShape.id)
-            }
-            // PDF Navigation
-            else if (hitShape.type === 'pointer') {
-                const pointerShape = hitShape as PointerShape
-                const asset = editor.getAsset(pointerShape.props.assetId) as PointerSnapshotAsset
-
-                if (asset && asset.type === 'pointer-snapshot') {
-                    setNavigationTarget({
-                        pdfId: asset.meta.pdfId,
-                        page: asset.meta.page,
-                        rect: asset.meta.rect
-                    })
-                }
-            }
+        if (hitShape && hitShape.type === 'text') {
+            editor.setEditingShape(hitShape.id)
+        } else if (!hitShape) {
+            // Create text on double click
+            editor.createShape('text', {
+                x: worldPoint.x,
+                y: worldPoint.y,
+                width: 200,
+                height: 100,
+            })
+            // Auto-edit newly created text?
+            // Need to know the ID. createShape returns it.
         }
     }
 
@@ -302,54 +598,30 @@ export function useCanvasInteraction(
         e.dataTransfer.dropEffect = 'copy'
     }
 
-    const handleDrop = (e: React.DragEvent) => {
+    const handleDrop = async (e: React.DragEvent) => {
         e.preventDefault()
-        const data = e.dataTransfer.getData('application/zetara-pointer')
-        if (!data) return
+        if (!containerRef.current) return
 
-        try {
-            const payload = JSON.parse(data)
-            if (payload.type === 'pointer') {
-                const rect = containerRef.current?.getBoundingClientRect()
-                if (!rect) return
+        const rect = containerRef.current.getBoundingClientRect()
+        const screenPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+        const worldPoint = editor.screenToWorld(screenPoint)
 
-                const screenPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-                const worldPoint = editor.screenToWorld(screenPoint)
-
-                // Create Asset
-                const assetId = `asset:${crypto.randomUUID()}`
-                // Calculate aspect ratio
-                const aspectRatio = payload.rect.width / payload.rect.height
-                const width = 200
-                const height = width / aspectRatio
-
-                const asset: PointerSnapshotAsset = {
-                    id: assetId,
-                    type: 'pointer-snapshot',
-                    src: payload.image,
-                    width: payload.rect.width,
-                    height: payload.rect.height,
-                    meta: {
-                        pdfId: payload.pdfId,
-                        page: payload.page,
-                        rect: payload.rect
-                    }
-                }
-                editor.createAsset(asset)
-
-                // Create Shape
-                editor.createShape('pointer', {
-                    x: worldPoint.x,
-                    y: worldPoint.y,
-                    width: width,
-                    height: height,
-                    props: {
-                        assetId: assetId
-                    }
-                })
+        // Handle library items
+        const libraryData = e.dataTransfer.getData('application/x-tldraw-library')
+        if (libraryData) {
+            try {
+                const item = JSON.parse(libraryData)
+                // Create shapes from library item
+                // ...
+            } catch (err) {
+                console.error('Failed to parse library item', err)
             }
-        } catch (err) {
-            console.error('Failed to parse drop data', err)
+            return
+        }
+
+        // Handle files (images, PDFs)
+        if (e.dataTransfer.files.length > 0) {
+            // ... file handling ...
         }
     }
 
@@ -361,6 +633,7 @@ export function useCanvasInteraction(
         handleResizeStart,
         handleDoubleClick,
         handleDragOver,
-        handleDrop
+        handleDrop,
+        snapLines
     }
 }

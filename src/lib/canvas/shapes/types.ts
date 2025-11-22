@@ -26,6 +26,7 @@ export interface BaseShape<Type extends ShapeType, Props extends object> {
     width: number
     height: number
     rotation: number
+    index: number // For z-index ordering
 
     // Visual
     opacity: number
@@ -38,13 +39,23 @@ export interface BaseShape<Type extends ShapeType, Props extends object> {
 }
 
 // ============================================================================
+// Shared Style Props
+// ============================================================================
+
+export interface StyleProps {
+    color?: string
+    size?: 's' | 'm' | 'l' | 'xl'
+    fill?: 'none' | 'semi' | 'solid'
+    dash?: 'draw' | 'solid' | 'dashed' | 'dotted'
+}
+
+// ============================================================================
 // Text Shape
 // ============================================================================
 
-export interface TextShapeProps {
+export interface TextShapeProps extends StyleProps {
     text: string
-    fontSize: number
-    color: string
+    fontSize: number // Keep for backward compatibility or map to size
     fontFamily: string
     textAlign: 'left' | 'center' | 'right'
 }
@@ -55,10 +66,8 @@ export type TextShape = BaseShape<'text', TextShapeProps>
 // Rectangle Shape
 // ============================================================================
 
-export interface RectShapeProps {
-    fill: string
-    stroke: string
-    strokeWidth: number
+export interface RectShapeProps extends StyleProps {
+    strokeWidth: number // Keep for backward compatibility
     cornerRadius: number
 }
 
@@ -68,9 +77,7 @@ export type RectShape = BaseShape<'rect', RectShapeProps>
 // Circle Shape
 // ============================================================================
 
-export interface CircleShapeProps {
-    fill: string
-    stroke: string
+export interface CircleShapeProps extends StyleProps {
     strokeWidth: number
 }
 
@@ -82,19 +89,17 @@ export type CircleShape = BaseShape<'circle', CircleShapeProps>
 
 export type ConnectionAnchor = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
 
-export interface ConnectionPoint {
-    type: 'point' | 'binding'
-    x?: number
-    y?: number
-    shapeId?: ShapeId
-    anchor?: ConnectionAnchor
+export interface ArrowBinding {
+    shapeId: ShapeId
+    anchor: ConnectionAnchor
 }
 
-export interface ArrowShapeProps {
-    from: ConnectionPoint
-    to: ConnectionPoint
+export interface ArrowShapeProps extends StyleProps {
+    start: { x: number, y: number }
+    end: { x: number, y: number }
+    startBinding?: ArrowBinding
+    endBinding?: ArrowBinding
     strokeWidth: number
-    color: string
     arrowheadStart: 'none' | 'arrow' | 'dot'
     arrowheadEnd: 'none' | 'arrow' | 'dot'
     bend: number // Curve amount
