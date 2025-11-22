@@ -1,36 +1,34 @@
-/**
- * CanvasBoard2 - New implementation using Editor and ShapeUtil
- * 
- * This is a cleaner rewrite of CanvasBoard that uses the new architecture.
- * Maintains backward compatibility through data migration.
- */
-
-'use client'
-
 import React, { useEffect, useRef } from 'react'
-import { useAppStore } from '@/lib/store'
-import { db } from '@/db/schema'
 import { useEditor, useEditorState } from '@/lib/canvas/editor'
+import { db } from '@/db/schema'
+import { useAppStore } from '@/lib/store'
 import { migrateOldToNew, migrateNewToOld } from '@/lib/canvas/migration'
 import { CanvasToolbar, CanvasTool } from './CanvasToolbar'
 import { defaultShapeUtils } from '@/lib/canvas/shapeUtils'
+import { ResizeHandles } from './ResizeHandles'
+import { TextEditor } from './TextEditor'
+import { useCanvasInteraction } from './hooks/useCanvasInteraction'
+import { AssetProvider } from '@/lib/canvas/context/AssetContext'
 
 export function CanvasBoard2() {
     const editor = useEditor()
     const state = useEditorState(editor)
     const containerRef = useRef<HTMLDivElement>(null)
     const svgRef = useRef<SVGSVGElement>(null)
-    const { selectedPaperId, setNavigationTarget, setSelectedPaperId } = useAppStore()
+    const { selectedPaperId } = useAppStore()
     const [currentTool, setCurrentTool] = React.useState<CanvasTool>('select')
-    const [isPanning, setIsPanning] = React.useState(false)
-    const [panStart, setPanStart] = React.useState({ x: 0, y: 0 })
-    const [draggedShape, setDraggedShape] = React.useState<{
-        shapeId: string
-        startX: number
-        startY: number
-        initialX: number
-        initialY: number
-    } | null>(null)
+
+    // Use the interaction hook
+    const {
+        isPanning,
+        handleMouseDown,
+        handleMouseMove,
+        handleMouseUp,
+        handleResizeStart,
+        handleDoubleClick,
+        handleDragOver,
+        handleDrop
+    } = useCanvasInteraction(editor, containerRef, currentTool, setCurrentTool)
 
     // Load canvas data when paper changes
     useEffect(() => {
@@ -64,7 +62,7 @@ export function CanvasBoard2() {
         }
 
         loadCanvas()
-    }, [selectedPaperId])
+    }, [selectedPaperId, editor])
 
     // Save canvas data when it changes
     useEffect(() => {
@@ -121,159 +119,6 @@ export function CanvasBoard2() {
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [state.editingId, state.selectedIds, editor])
 
-    // Handle wheel for zoom/pan with native event listener
-    useEffect(() => {
-        const container = containerRef.current
-        if (!container) return
-
-        const handleWheel = (e: WheelEvent) => {
-            if (e.ctrlKey || e.metaKey) {
-                // Zoom
-                e.preventDefault()
-                const delta = -e.deltaY * 0.001
-                const camera = editor.getCamera()
-                editor.setCamera({
-                    zoom: Math.min(Math.max(camera.zoom + delta, 0.1), 5),
-                })
-            } else {
-                // Pan
-                e.preventDefault()
-                const camera = editor.getCamera()
-                editor.setCamera({
-                    x: camera.x - e.deltaX,
-                    y: camera.y - e.deltaY,
-                })
-            }
-        }
-
-        // Add non-passive event listener to allow preventDefault
-        container.addEventListener('wheel', handleWheel, { passive: false })
-
-        return () => {
-            container.removeEventListener('wheel', handleWheel)
-        }
-    }, [editor])
-
-    // Handle mouse events
-    const handleMouseDown = (e: React.MouseEvent) => {
-        if (!containerRef.current) return
-
-        // Pan with Alt+click or middle mouse button
-        if (e.altKey || e.button === 1) {
-            e.preventDefault()
-            setIsPanning(true)
-            setPanStart({ x: e.clientX, y: e.clientY })
-            return
-        }
-
-        // Only handle left click for tools
-        if (e.button !== 0) return
-
-        const rect = containerRef.current.getBoundingClientRect()
-        const screenPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-        const worldPoint = editor.screenToWorld(screenPoint)
-
-        console.log('Mouse down:', { currentTool, screenPoint, worldPoint })
-
-        // Handle tool-specific actions
-        if (currentTool === 'text') {
-            console.log('Creating text shape')
-            const shape = editor.createShape('text', {
-                x: worldPoint.x,
-                y: worldPoint.y,
-                width: 200,
-                height: 100,
-            })
-            console.log('Created shape:', shape)
-            setCurrentTool('select')
-            return
-        }
-
-        if (currentTool === 'rect') {
-            console.log('Creating rect shape')
-            const shape = editor.createShape('rect', {
-                x: worldPoint.x,
-                y: worldPoint.y,
-                width: 100,
-                height: 100,
-            })
-            console.log('Created shape:', shape)
-            setCurrentTool('select')
-            return
-        }
-
-        if (currentTool === 'circle') {
-            console.log('Creating circle shape')
-            const shape = editor.createShape('circle', {
-                x: worldPoint.x,
-                y: worldPoint.y,
-                width: 100,
-                height: 100,
-            })
-            console.log('Created shape:', shape)
-            setCurrentTool('select')
-            return
-        }
-
-        // Hit test for selection
-        const hitShape = editor.getShapeAtPoint(worldPoint)
-        console.log('Hit test:', { worldPoint, hitShape, allShapes: shapes.length })
-
-        if (hitShape) {
-            console.log('Selecting shape:', hitShape.id)
-            editor.setSelection([hitShape.id])
-
-            // Start dragging if in select mode
-            if (currentTool === 'select') {
-                setDraggedShape({
-                    shapeId: hitShape.id,
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    initialX: hitShape.x,
-                    initialY: hitShape.y,
-                })
-            }
-        } else {
-            console.log('Clearing selection')
-            editor.selectNone()
-        }
-    }
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        // Handle panning
-        if (isPanning) {
-            const dx = e.clientX - panStart.x
-            const dy = e.clientY - panStart.y
-
-            const camera = editor.getCamera()
-            editor.setCamera({
-                x: camera.x + dx,
-                y: camera.y + dy,
-            })
-
-            setPanStart({ x: e.clientX, y: e.clientY })
-            return
-        }
-
-        // Handle shape dragging
-        if (draggedShape) {
-            const dx = (e.clientX - draggedShape.startX) / state.camera.zoom
-            const dy = (e.clientY - draggedShape.startY) / state.camera.zoom
-
-            editor.updateShape(draggedShape.shapeId, {
-                x: draggedShape.initialX + dx,
-                y: draggedShape.initialY + dy,
-            })
-        }
-    }
-
-    const handleMouseUp = () => {
-        setIsPanning(false)
-        setDraggedShape(null)
-    }
-
-
-
     const shapes = Object.values(state.shapes)
 
     return (
@@ -295,61 +140,80 @@ export function CanvasBoard2() {
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
+                onDoubleClick={handleDoubleClick}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
             >
-                {/* SVG Canvas */}
-                <svg
-                    ref={svgRef}
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        pointerEvents: 'none',
-                    }}
-                >
-                    {/* Grid background */}
-                    <defs>
-                        <pattern
-                            id="grid"
-                            width={20 * state.camera.zoom}
-                            height={20 * state.camera.zoom}
-                            patternUnits="userSpaceOnUse"
-                        >
-                            <circle cx={1} cy={1} r={1} fill="#333" />
-                        </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#grid)" />
+                <AssetProvider value={state.assets}>
+                    {/* SVG Canvas */}
+                    <svg
+                        ref={svgRef}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        {/* Grid background */}
+                        <defs>
+                            <pattern
+                                id="grid"
+                                width={20 * state.camera.zoom}
+                                height={20 * state.camera.zoom}
+                                patternUnits="userSpaceOnUse"
+                            >
+                                <circle cx={1} cy={1} r={1} fill="#333" />
+                            </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#grid)" />
 
-                    {/* Transform group for camera */}
-                    <g transform={`translate(${state.camera.x}, ${state.camera.y}) scale(${state.camera.zoom})`}>
-                        {/* Render all shapes */}
-                        {shapes.map(shape => {
-                            const util = defaultShapeUtils.getForShape(shape)
-                            const isSelected = state.selectedIds.has(shape.id)
-                            const isEditing = state.editingId === shape.id
+                        {/* Transform group for camera */}
+                        <g transform={`translate(${state.camera.x}, ${state.camera.y}) scale(${state.camera.zoom})`}>
+                            {/* Render all shapes */}
+                            {shapes.map(shape => {
+                                const util = defaultShapeUtils.getForShape(shape)
+                                const isSelected = state.selectedIds.has(shape.id)
+                                const isEditing = state.editingId === shape.id
 
-                            return (
-                                <g key={shape.id} style={{ pointerEvents: 'all' }}>
-                                    {util.component(shape, isSelected, isEditing)}
-                                    {isSelected && (
-                                        <rect
-                                            x={shape.x - 2}
-                                            y={shape.y - 2}
-                                            width={shape.width + 4}
-                                            height={shape.height + 4}
-                                            fill="none"
-                                            stroke="#0d99ff"
-                                            strokeWidth={2 / state.camera.zoom}
-                                            strokeDasharray={`${5 / state.camera.zoom},${5 / state.camera.zoom}`}
-                                            pointerEvents="none"
-                                        />
-                                    )}
-                                </g>
-                            )
-                        })}
-                    </g>
-                </svg>
+                                return (
+                                    <g key={shape.id} style={{ pointerEvents: 'all' }}>
+                                        {/* Render shape or editor */}
+                                        {isEditing && shape.type === 'text' ? (
+                                            <TextEditor key={shape.id} shape={shape as any} zoom={state.camera.zoom} editor={editor} />
+                                        ) : (
+                                            util.component(shape, isSelected, isEditing)
+                                        )}
+
+                                        {/* Selection and Resize Handles */}
+                                        {isSelected && !isEditing && (
+                                            <>
+                                                <rect
+                                                    x={shape.x - 2}
+                                                    y={shape.y - 2}
+                                                    width={shape.width + 4}
+                                                    height={shape.height + 4}
+                                                    fill="none"
+                                                    stroke="#0d99ff"
+                                                    strokeWidth={2 / state.camera.zoom}
+                                                    strokeDasharray={`${5 / state.camera.zoom},${5 / state.camera.zoom}`}
+                                                    pointerEvents="none"
+                                                />
+                                                <ResizeHandles
+                                                    shape={shape}
+                                                    zoom={state.camera.zoom}
+                                                    onResizeStart={handleResizeStart}
+                                                />
+                                            </>
+                                        )}
+                                    </g>
+                                )
+                            })}
+                        </g>
+                    </svg>
+                </AssetProvider>
             </div>
         </div>
     )
