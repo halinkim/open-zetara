@@ -10,11 +10,15 @@ import { Asset, AssetId } from '../assets'
 import { CanvasState, Camera, createEmptyCanvasState, serializeCanvasState, deserializeCanvasState } from '../store'
 import { ShapeUtil, ShapeUtilRegistry, defaultShapeUtils } from '../shapeUtils'
 import { Vec2, Bounds } from '../shapes/types'
+import { HistoryManager } from './managers/HistoryManager'
+import { captureEditorState, restoreEditorState, EditorStateSnapshot, areStatesEqual } from './utils/history-utils'
+import { copyShapesToClipboard, pasteShapesFromClipboard } from './clipboard'
 
 export class Editor {
     private state: CanvasState
     private shapeUtils: ShapeUtilRegistry
     private listeners: Set<() => void> = new Set()
+    private history: HistoryManager
 
     constructor(
         initialState?: Partial<CanvasState>,
@@ -25,6 +29,7 @@ export class Editor {
             ...initialState,
         }
         this.shapeUtils = shapeUtils || defaultShapeUtils
+        this.history = new HistoryManager({ maxStackSize: 100 })
     }
 
     // ============================================================================
@@ -67,9 +72,15 @@ export class Editor {
             props?: Partial<Extract<Shape, { type: T }>['props']>
         } = {}
     ): Extract<Shape, { type: T }> {
+        const before = this.captureState()
+
         const maxIndex = Math.max(0, ...Object.values(this.state.shapes).map(s => s.index || 0))
         const shape = createShapeHelper(type, { ...partial, index: maxIndex + 1 } as any)
         this.state.shapes[shape.id] = shape as Shape
+
+        const after = this.captureState()
+        this.recordHistory(before, after, 'Create shape')
+
         this.notifyListeners()
         return shape as Extract<Shape, { type: T }>
     }
@@ -78,20 +89,31 @@ export class Editor {
         const shape = this.state.shapes[id]
         if (!shape) return
 
+        const before = this.captureState()
         this.state.shapes[id] = { ...shape, ...partial }
+        const after = this.captureState()
+        this.recordHistory(before, after, 'Update shape')
+
         this.notifyListeners()
     }
 
     updateShapes(updates: { id: ShapeId, partial: Partial<Shape> }[]): void {
+        if (updates.length === 0) return
+
+        const before = this.captureState()
+
         let changed = false
         updates.forEach(({ id, partial }) => {
             const shape = this.state.shapes[id]
             if (shape) {
-                this.state.shapes[id] = { ...shape, ...partial }
+                this.state.shapes[id] = { ...shape, ...partial } as Shape
                 changed = true
             }
         })
+
         if (changed) {
+            const after = this.captureState()
+            this.recordHistory(before, after, 'Update shapes')
             this.notifyListeners()
         }
     }
@@ -108,6 +130,10 @@ export class Editor {
     }
 
     deleteShapes(ids: ShapeId[]): void {
+        if (ids.length === 0) return
+
+        const before = this.captureState()
+
         ids.forEach(id => {
             delete this.state.shapes[id]
             this.state.selectedIds.delete(id)
@@ -115,6 +141,10 @@ export class Editor {
         if (this.state.editingId && ids.includes(this.state.editingId)) {
             this.state.editingId = null
         }
+
+        const after = this.captureState()
+        this.recordHistory(before, after, 'Delete shapes')
+
         this.notifyListeners()
     }
 
@@ -321,6 +351,307 @@ export class Editor {
             a.y + a.h < b.y ||
             b.y + b.h < a.y
         )
+    }
+
+    // ============================================================================
+    // Copy/Paste/Duplicate
+    // ============================================================================
+
+    /**
+     * Duplicate shapes with optional offset
+     */
+    duplicateShapes(shapeIds: ShapeId[], offset: { x: number; y: number } = { x: 20, y: 20 }): this {
+        if (shapeIds.length === 0) return this
+
+        const shapesToDuplicate = shapeIds
+            .map(id => this.state.shapes[id])
+            .filter(Boolean)
+
+        if (shapesToDuplicate.length === 0) return this
+
+        // Pause history for intermediate steps
+        this.history.pause()
+
+        try {
+            const newShapes: Shape[] = []
+            const idMap = new Map<ShapeId, ShapeId>()
+
+            // Create new IDs for all shapes
+            for (const shape of shapesToDuplicate) {
+                idMap.set(shape.id, this.createShapeId())
+            }
+
+            // Clone shapes with new IDs and offset
+            for (const shape of shapesToDuplicate) {
+                const newId = idMap.get(shape.id)!
+                const newShape: Shape = {
+                    ...structuredClone(shape),
+                    id: newId,
+                    x: shape.x + offset.x,
+                    y: shape.y + offset.y
+                }
+
+                // Update arrow bindings if this is an arrow
+                if (newShape.type === 'arrow') {
+                    // Handle start binding
+                    if (newShape.props.startBinding) {
+                        const targetId = newShape.props.startBinding.shapeId
+                        if (idMap.has(targetId)) {
+                            // Update to new duplicated shape
+                            newShape.props.startBinding = {
+                                ...newShape.props.startBinding,
+                                shapeId: idMap.get(targetId)!
+                            }
+                        } else {
+                            // Remove binding if target not duplicated
+                            delete newShape.props.startBinding
+                        }
+                    }
+
+                    // Handle end binding
+                    if (newShape.props.endBinding) {
+                        const targetId = newShape.props.endBinding.shapeId
+                        if (idMap.has(targetId)) {
+                            newShape.props.endBinding = {
+                                ...newShape.props.endBinding,
+                                shapeId: idMap.get(targetId)!
+                            }
+                        } else {
+                            delete newShape.props.endBinding
+                        }
+                    }
+                }
+
+                newShapes.push(newShape)
+            }
+
+            this.history.resume()
+
+            // Record as single operation
+            const before = this.captureState()
+
+            for (const shape of newShapes) {
+                this.state.shapes[shape.id] = shape
+            }
+            this.state.selectedIds = new Set(newShapes.map(s => s.id))
+
+            const after = this.captureState()
+            this.recordHistory(before, after, `Duplicate ${newShapes.length} shape(s)`)
+
+            this.notifyListeners()
+        } finally {
+            this.history.resume()
+        }
+
+        return this
+    }
+
+    /**
+     * Copy selected shapes to clipboard
+     */
+    async copy(): Promise<this> {
+        const shapes = this.getSelectedShapes()
+        if (shapes.length > 0) {
+            await copyShapesToClipboard(shapes)
+        }
+        return this
+    }
+
+    /**
+     * Paste shapes from clipboard
+     */
+    async paste(): Promise<this> {
+        const shapes = await pasteShapesFromClipboard()
+        if (!shapes || shapes.length === 0) return this
+
+        // Calculate offset based on camera center
+        const camera = this.getCamera()
+        const offset = {
+            x: camera.x + 100,
+            y: camera.y + 100
+        }
+
+        // Use duplicateShapes logic but with clipboard shapes
+        this.history.pause()
+
+        try {
+            const newShapes: Shape[] = []
+            const idMap = new Map<ShapeId, ShapeId>()
+
+            // Create new IDs
+            for (const shape of shapes) {
+                idMap.set(shape.id, this.createShapeId())
+            }
+
+            // Clone with new IDs
+            for (const shape of shapes) {
+                const newId = idMap.get(shape.id)!
+                const newShape: Shape = {
+                    ...structuredClone(shape),
+                    id: newId
+                }
+
+                // Update arrow bindings
+                if (newShape.type === 'arrow') {
+                    if (newShape.props.startBinding) {
+                        const targetId = newShape.props.startBinding.shapeId
+                        if (idMap.has(targetId)) {
+                            newShape.props.startBinding.shapeId = idMap.get(targetId)!
+                        } else {
+                            delete newShape.props.startBinding
+                        }
+                    }
+
+                    if (newShape.props.endBinding) {
+                        const targetId = newShape.props.endBinding.shapeId
+                        if (idMap.has(targetId)) {
+                            newShape.props.endBinding.shapeId = idMap.get(targetId)!
+                        } else {
+                            delete newShape.props.endBinding
+                        }
+                    }
+                }
+
+                newShapes.push(newShape)
+            }
+
+            this.history.resume()
+
+            // Record as single operation
+            const before = this.captureState()
+
+            for (const shape of newShapes) {
+                this.state.shapes[shape.id] = shape
+            }
+            this.state.selectedIds = new Set(newShapes.map(s => s.id))
+
+            const after = this.captureState()
+            this.recordHistory(before, after, `Paste ${newShapes.length} shape(s)`)
+
+            this.notifyListeners()
+        } finally {
+            this.history.resume()
+        }
+
+        return this
+    }
+
+    /**
+     * Generate a new shape ID
+     */
+    private createShapeId(): ShapeId {
+        return `shape:${Date.now()}_${Math.random().toString(36).substr(2, 9)}` as ShapeId
+    }
+
+    // ============================================================================
+    // History System
+    // ============================================================================
+
+    /**
+     * Capture current editor state for history
+     */
+    private captureState(): EditorStateSnapshot {
+        // Convert shapes Record to Map first
+        const shapesMap = new Map<string, Shape>()
+        Object.entries(this.state.shapes).forEach(([id, shape]) => {
+            shapesMap.set(id, shape)
+        })
+
+        return captureEditorState(shapesMap, Array.from(this.state.selectedIds))
+    }
+
+    /**
+     * Restore editor state from snapshot
+     */
+    private applyState(snapshot: EditorStateSnapshot): void {
+        // Convert snapshot back to Record
+        this.state.shapes = {}
+        Object.entries(snapshot.shapes).forEach(([id, shape]) => {
+            this.state.shapes[id] = shape
+        })
+
+        this.state.selectedIds = new Set(snapshot.selectedShapeIds)
+        this.notifyListeners()
+    }
+
+    /**
+     * Record a history entry
+     */
+    private recordHistory(before: EditorStateSnapshot, after: EditorStateSnapshot, label?: string): void {
+        // Don't record if states are equal
+        if (areStatesEqual(before, after)) return
+
+        this.history.record({
+            type: 'snapshot',
+            before: { shapes: before.shapes, selectedShapeIds: before.selectedShapeIds },
+            after: { shapes: after.shapes, selectedShapeIds: after.selectedShapeIds },
+            timestamp: Date.now(),
+            label
+        })
+    }
+
+    /**
+     * Undo the last operation
+     */
+    undo(): this {
+        const state = this.history.undo()
+        if (state) {
+            this.applyState(state as EditorStateSnapshot)
+        }
+        return this
+    }
+
+    /**
+     * Redo the last undone operation
+     */
+    redo(): this {
+        const state = this.history.redo()
+        if (state) {
+            this.applyState(state as EditorStateSnapshot)
+        }
+        return this
+    }
+
+    /**
+     * Check if undo is available
+     */
+    canUndo(): boolean {
+        return this.history.canUndo()
+    }
+
+    /**
+     * Check if redo is available
+     */
+    canRedo(): boolean {
+        return this.history.canRedo()
+    }
+
+    /**
+     * Pause history recording (for internal operations)
+     */
+    pauseHistory(): void {
+        this.history.pause()
+    }
+
+    /**
+     * Resume history recording
+     */
+    resumeHistory(): void {
+        this.history.resume()
+    }
+
+    /**
+     * Start a batch operation
+     */
+    startBatch(id: string): void {
+        this.history.startBatch(id)
+    }
+
+    /**
+     * End a batch operation
+     */
+    endBatch(id: string): void {
+        this.history.endBatch(id)
     }
 
     // ============================================================================
