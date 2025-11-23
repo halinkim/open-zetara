@@ -20,6 +20,57 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Deployment Configuration
+
+Zetara supports Jupyter Lab-style CLI configuration for deployment settings including port, IP restrictions, and password protection.
+
+### Setting Up Password Protection
+
+```bash
+# Set password (stored as bcrypt hash in ~/.zetara/config.json)
+node ./bin/zetara.js password
+
+# View current configuration
+node ./bin/zetara.js config
+```
+
+### Running with Custom Settings
+
+```bash
+# Change port
+node ./bin/zetara.js --port=8080
+
+# Bind to specific IP
+node ./bin/zetara.js --ip="127.0.0.1"  # localhost only
+node ./bin/zetara.js --ip="*"          # all interfaces
+
+# IP whitelist (CIDR supported)
+node ./bin/zetara.js --allowed-ips="192.168.1.0/24,10.0.0.5"
+
+# Disable password temporarily
+node ./bin/zetara.js --no-password
+
+# Session timeout (seconds)
+node ./bin/zetara.js --session-max-age=3600
+```
+
+### Configuration File
+
+Settings are stored in `~/.zetara/config.json` (Windows: `C:\Users\[username]\.zetara\config.json`):
+
+```json
+{
+  "port": 3000,
+  "host": "0.0.0.0",
+  "allowedIps": [],
+  "passwordHash": "$2b$10$...",
+  "sessionSecret": "auto-generated",
+  "sessionMaxAge": 86400
+}
+```
+
+For detailed deployment instructions, see [README_DEPLOYMENT.md](./README_DEPLOYMENT.md).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

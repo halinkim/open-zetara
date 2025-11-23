@@ -68,7 +68,7 @@ export function CanvasBoard() {
                     })
                 }
                 // Mark as loaded
-                console.log('Canvas loaded for paper:', selectedPaperId)
+                // console.log('Canvas loaded for paper:', selectedPaperId)
                 loadedPaperId.current = selectedPaperId
             } catch (error) {
                 console.error('Error loading canvas:', error)
@@ -83,19 +83,13 @@ export function CanvasBoard() {
         if (!selectedPaperId) return
         // Don't save if we haven't loaded the current paper yet
         if (loadedPaperId.current !== selectedPaperId) {
-            console.log('Skipping save: Canvas not loaded yet', { loaded: loadedPaperId.current, selected: selectedPaperId })
             return
         }
 
         const saveCanvas = async () => {
             try {
-                console.log('Saving canvas...', { shapes: Object.keys(state.shapes).length, assets: Object.keys(state.assets).length })
                 // Convert shapes back to old format
                 const oldItems = migrateNewToOld(state.shapes, state.assets)
-                console.log('Migrated items for save:', oldItems.length)
-                if (oldItems.length > 0) {
-                    console.log('First item index:', (oldItems[0] as any).index)
-                }
 
                 await api.canvas.save(selectedPaperId, JSON.stringify(oldItems))
             } catch (error) {
