@@ -187,6 +187,10 @@ export class Editor {
     }
 
     sendBackward(ids: ShapeId[]): void {
+        if (ids.length === 0) return
+
+        const before = this.captureState()
+
         const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
         const selectedSet = new Set(ids)
 
@@ -200,10 +204,18 @@ export class Editor {
                 this.state.shapes[shapes[i - 1].id] = shapes[i - 1]
             }
         }
+
+        const after = this.captureState()
+        this.recordHistory(before, after, 'Send backward')
+
         this.notifyListeners()
     }
 
     bringForward(ids: ShapeId[]): void {
+        if (ids.length === 0) return
+
+        const before = this.captureState()
+
         const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
         const selectedSet = new Set(ids)
 
@@ -217,6 +229,76 @@ export class Editor {
                 this.state.shapes[shapes[i + 1].id] = shapes[i + 1]
             }
         }
+
+        const after = this.captureState()
+        this.recordHistory(before, after, 'Bring forward')
+
+        this.notifyListeners()
+    }
+
+    /**
+     * Bring shapes to front (highest z-index)
+     */
+    bringToFront(ids: ShapeId[]): void {
+        if (ids.length === 0) return
+
+        const before = this.captureState()
+
+        const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
+        const selectedSet = new Set(ids)
+
+        // Find max index
+        const maxIndex = Math.max(...shapes.map(s => s.index || 0))
+
+        // Move selected shapes to front
+        let newIndex = maxIndex + 1
+        for (const shape of shapes) {
+            if (selectedSet.has(shape.id)) {
+                shape.index = newIndex++
+                this.state.shapes[shape.id] = shape
+            }
+        }
+
+        const after = this.captureState()
+        this.recordHistory(before, after, 'Bring to front')
+
+        this.notifyListeners()
+    }
+
+    /**
+     * Send shapes to back (lowest z-index)
+     */
+    sendToBack(ids: ShapeId[]): void {
+        if (ids.length === 0) return
+
+        const before = this.captureState()
+
+        const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
+        const selectedSet = new Set(ids)
+
+        // Find min index
+        const minIndex = Math.min(...shapes.map(s => s.index || 0))
+
+        // Shift non-selected shapes up
+        const selectedShapes = shapes.filter(s => selectedSet.has(s.id))
+        const nonSelectedShapes = shapes.filter(s => !selectedSet.has(s.id))
+
+        // Move non-selected shapes up by the number of selected shapes
+        for (const shape of nonSelectedShapes) {
+            shape.index = (shape.index || 0) + selectedShapes.length
+            this.state.shapes[shape.id] = shape
+        }
+
+        // Place selected shapes at the bottom
+        let newIndex = minIndex
+        for (const shape of selectedShapes) {
+            shape.index = newIndex++
+            this.state.shapes[shape.id] = shape
+        }
+
+        const after = this.captureState()
+        this.recordHistory(before, after, 'Send to back')
+
         this.notifyListeners()
     }
 
