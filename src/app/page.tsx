@@ -9,14 +9,10 @@ import { MetadataPanel } from "@/components/library/MetadataPanel";
 import { PdfViewer } from "@/components/pdf/PdfViewer";
 import { useAppStore } from "@/lib/store";
 import { CanvasBoard } from '@/components/canvas/CanvasBoard';
-import { CanvasBoard2 } from '@/components/canvas/CanvasBoard2';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ResizableSplitPane } from '@/components/layout/ResizableSplitPane';
 import { Files, Settings, GitBranch, Loader2, Edit2 } from 'lucide-react';
 import { useFileDrop } from '@/hooks/useFileDrop';
-
-// Toggle for new canvas (set to true to use CanvasBoard2)
-const USE_NEW_CANVAS = true;
 
 export default function Home() {
   const { t } = useI18n();
@@ -159,7 +155,7 @@ export default function Home() {
               }
               right={
                 <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
-                  {USE_NEW_CANVAS ? <CanvasBoard2 /> : <CanvasBoard />}
+                  <CanvasBoard />
                 </div>
               }
             />
