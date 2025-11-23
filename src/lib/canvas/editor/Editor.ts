@@ -186,121 +186,7 @@ export class Editor {
         this.notifyListeners()
     }
 
-    sendBackward(ids: ShapeId[]): void {
-        if (ids.length === 0) return
 
-        const before = this.captureState()
-
-        const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
-        const selectedSet = new Set(ids)
-
-        for (let i = 1; i < shapes.length; i++) {
-            if (selectedSet.has(shapes[i].id) && !selectedSet.has(shapes[i - 1].id)) {
-                const temp = shapes[i].index
-                shapes[i].index = shapes[i - 1].index
-                shapes[i - 1].index = temp
-
-                this.state.shapes[shapes[i].id] = shapes[i]
-                this.state.shapes[shapes[i - 1].id] = shapes[i - 1]
-            }
-        }
-
-        const after = this.captureState()
-        this.recordHistory(before, after, 'Send backward')
-
-        this.notifyListeners()
-    }
-
-    bringForward(ids: ShapeId[]): void {
-        if (ids.length === 0) return
-
-        const before = this.captureState()
-
-        const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
-        const selectedSet = new Set(ids)
-
-        for (let i = shapes.length - 2; i >= 0; i--) {
-            if (selectedSet.has(shapes[i].id) && !selectedSet.has(shapes[i + 1].id)) {
-                const temp = shapes[i].index
-                shapes[i].index = shapes[i + 1].index
-                shapes[i + 1].index = temp
-
-                this.state.shapes[shapes[i].id] = shapes[i]
-                this.state.shapes[shapes[i + 1].id] = shapes[i + 1]
-            }
-        }
-
-        const after = this.captureState()
-        this.recordHistory(before, after, 'Bring forward')
-
-        this.notifyListeners()
-    }
-
-    /**
-     * Bring shapes to front (highest z-index)
-     */
-    bringToFront(ids: ShapeId[]): void {
-        if (ids.length === 0) return
-
-        const before = this.captureState()
-
-        const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
-        const selectedSet = new Set(ids)
-
-        // Find max index
-        const maxIndex = Math.max(...shapes.map(s => s.index || 0))
-
-        // Move selected shapes to front
-        let newIndex = maxIndex + 1
-        for (const shape of shapes) {
-            if (selectedSet.has(shape.id)) {
-                shape.index = newIndex++
-                this.state.shapes[shape.id] = shape
-            }
-        }
-
-        const after = this.captureState()
-        this.recordHistory(before, after, 'Bring to front')
-
-        this.notifyListeners()
-    }
-
-    /**
-     * Send shapes to back (lowest z-index)
-     */
-    sendToBack(ids: ShapeId[]): void {
-        if (ids.length === 0) return
-
-        const before = this.captureState()
-
-        const shapes = this.getShapes().sort((a, b) => (a.index || 0) - (b.index || 0))
-        const selectedSet = new Set(ids)
-
-        // Find min index
-        const minIndex = Math.min(...shapes.map(s => s.index || 0))
-
-        // Shift non-selected shapes up
-        const selectedShapes = shapes.filter(s => selectedSet.has(s.id))
-        const nonSelectedShapes = shapes.filter(s => !selectedSet.has(s.id))
-
-        // Move non-selected shapes up by the number of selected shapes
-        for (const shape of nonSelectedShapes) {
-            shape.index = (shape.index || 0) + selectedShapes.length
-            this.state.shapes[shape.id] = shape
-        }
-
-        // Place selected shapes at the bottom
-        let newIndex = minIndex
-        for (const shape of selectedShapes) {
-            shape.index = newIndex++
-            this.state.shapes[shape.id] = shape
-        }
-
-        const after = this.captureState()
-        this.recordHistory(before, after, 'Send to back')
-
-        this.notifyListeners()
-    }
 
     // ============================================================================
     // Editing
@@ -751,6 +637,134 @@ export class Editor {
             this.notifyListeners()
         } catch (error) {
             console.error('Failed to load canvas state:', error)
+        }
+    }
+
+    // ============================================================================
+    // Z-Index Operations
+    // ============================================================================
+
+    bringToFront(ids: ShapeId[]): void {
+        if (ids.length === 0) return
+
+        const shapes = this.getShapes()
+        const maxIndex = Math.max(0, ...shapes.map(s => s.index || 0))
+
+        // Sort selected ids by current index to maintain relative order
+        const sortedIds = ids.sort((a, b) => {
+            const shapeA = this.getShape(a)
+            const shapeB = this.getShape(b)
+            return (shapeA?.index || 0) - (shapeB?.index || 0)
+        })
+
+        const updates = sortedIds.map((id, i) => ({
+            id,
+            partial: { index: maxIndex + 1 + i }
+        }))
+
+        this.updateShapes(updates)
+    }
+
+    sendToBack(ids: ShapeId[]): void {
+        if (ids.length === 0) return
+
+        const shapes = this.getShapes()
+        const minIndex = Math.min(0, ...shapes.map(s => s.index || 0))
+
+        // Sort selected ids by current index to maintain relative order
+        const sortedIds = ids.sort((a, b) => {
+            const shapeA = this.getShape(a)
+            const shapeB = this.getShape(b)
+            return (shapeA?.index || 0) - (shapeB?.index || 0)
+        })
+
+        const updates = sortedIds.map((id, i) => ({
+            id,
+            partial: { index: minIndex - (sortedIds.length - i) }
+        }))
+
+        this.updateShapes(updates)
+    }
+
+    bringForward(ids: ShapeId[]): void {
+        if (ids.length === 0) return
+
+        // Clone and sort shapes
+        const shapes = this.getShapes()
+            .map(s => ({ ...s }))
+            .sort((a, b) => (a.index || 0) - (b.index || 0))
+
+        // Normalize indices
+        shapes.forEach((s, i) => s.index = i)
+
+        const selectedSet = new Set(ids)
+        let changed = false
+
+        // Process from highest index to lowest
+        for (let i = shapes.length - 2; i >= 0; i--) {
+            if (selectedSet.has(shapes[i].id) && !selectedSet.has(shapes[i + 1].id)) {
+                const temp = shapes[i].index
+                shapes[i].index = shapes[i + 1].index
+                shapes[i + 1].index = temp
+
+                const tempShape = shapes[i]
+                shapes[i] = shapes[i + 1]
+                shapes[i + 1] = tempShape
+
+                changed = true
+            }
+        }
+
+        if (changed) {
+            const updates = shapes
+                .filter(s => s.index !== this.state.shapes[s.id].index)
+                .map(s => ({
+                    id: s.id,
+                    partial: { index: s.index }
+                }))
+
+            this.updateShapes(updates)
+        }
+    }
+
+    sendBackward(ids: ShapeId[]): void {
+        if (ids.length === 0) return
+
+        // Clone and sort shapes
+        const shapes = this.getShapes()
+            .map(s => ({ ...s }))
+            .sort((a, b) => (a.index || 0) - (b.index || 0))
+
+        // Normalize indices
+        shapes.forEach((s, i) => s.index = i)
+
+        const selectedSet = new Set(ids)
+        let changed = false
+
+        // Process from lowest index to highest
+        for (let i = 1; i < shapes.length; i++) {
+            if (selectedSet.has(shapes[i].id) && !selectedSet.has(shapes[i - 1].id)) {
+                const temp = shapes[i].index
+                shapes[i].index = shapes[i - 1].index
+                shapes[i - 1].index = temp
+
+                const tempShape = shapes[i]
+                shapes[i] = shapes[i - 1]
+                shapes[i - 1] = tempShape
+
+                changed = true
+            }
+        }
+
+        if (changed) {
+            const updates = shapes
+                .filter(s => s.index !== this.state.shapes[s.id].index)
+                .map(s => ({
+                    id: s.id,
+                    partial: { index: s.index }
+                }))
+
+            this.updateShapes(updates)
         }
     }
 }

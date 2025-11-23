@@ -8,6 +8,7 @@ export interface BaseCanvasItem {
     width: number;
     height: number;
     selected?: boolean;
+    index?: number;
 }
 
 export interface PointerItem extends BaseCanvasItem {

@@ -19,13 +19,13 @@ export function migrateOldToNew(oldItems: CanvasItem[]): {
     const shapes: Record<ShapeId, Shape> = {}
     const assets: Record<string, Asset> = {}
 
-    oldItems.forEach(item => {
+    oldItems.forEach((item, i) => {
         if (item.type === 'connector') {
             // Skip connectors for now
             return
         }
 
-        const shape = convertItemToShape(item, assets)
+        const shape = convertItemToShape(item, assets, i)
         if (shape) {
             shapes[shape.id] = shape
         }
@@ -37,12 +37,13 @@ export function migrateOldToNew(oldItems: CanvasItem[]): {
 /**
  * Convert a single old item to new shape
  */
-function convertItemToShape(item: CanvasItem, assets: Record<string, Asset>): Shape | null {
+function convertItemToShape(item: CanvasItem, assets: Record<string, Asset>, fallbackIndex: number): Shape | null {
     const baseProps = {
         x: item.x,
         y: item.y,
         width: item.width,
         height: item.height,
+        index: typeof item.index === 'number' ? item.index : fallbackIndex,
     }
 
     switch (item.type) {
@@ -58,6 +59,8 @@ function convertItemToShape(item: CanvasItem, assets: Record<string, Asset>): Sh
             })
             return { ...shape, id: item.id }
         }
+        // ... (omitted for brevity, but I will target the specific blocks)
+
 
         case 'shape': {
             const shapeItem = item as ShapeItem
@@ -181,9 +184,11 @@ export function migrateNewToOld(
     shapes: Record<ShapeId, Shape>,
     assets: Record<string, Asset>
 ): CanvasItem[] {
-    return Object.values(shapes).map(shape => {
-        return convertShapeToItem(shape, assets)
-    }).filter(Boolean) as CanvasItem[]
+    return Object.values(shapes)
+        .sort((a, b) => (a.index || 0) - (b.index || 0))
+        .map(shape => {
+            return convertShapeToItem(shape, assets)
+        }).filter(Boolean) as CanvasItem[]
 }
 
 /**
@@ -196,6 +201,7 @@ function convertShapeToItem(shape: Shape, assets: Record<string, Asset>): Canvas
         y: shape.y,
         width: shape.width,
         height: shape.height,
+        index: shape.index,
     }
 
     switch (shape.type) {

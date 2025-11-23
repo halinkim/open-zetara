@@ -2,6 +2,7 @@ import React from 'react'
 import { Editor } from '@/lib/canvas/editor/Editor'
 import { useEditorState } from '@/lib/canvas/editor'
 import { StyleProps } from '@/lib/canvas/shapes/types'
+import { BringToFront, SendToBack, ArrowUp, ArrowDown } from 'lucide-react'
 
 interface StylePanelProps {
     editor: Editor
@@ -126,6 +127,38 @@ export function StylePanel({ editor }: StylePanelProps) {
                         {dash}
                     </button>
                 ))}
+            </div>
+
+            {/* Z-Index */}
+            <div style={{ display: 'flex', gap: '4px', borderTop: '1px solid #555', paddingTop: '8px' }}>
+                <button
+                    onClick={() => editor.bringToFront(selectedShapes.map(s => s.id))}
+                    title="Bring to Front"
+                    style={{ backgroundColor: '#444', border: 'none', borderRadius: '4px', padding: '4px', color: 'white', cursor: 'pointer' }}
+                >
+                    <BringToFront size={16} />
+                </button>
+                <button
+                    onClick={() => editor.bringForward(selectedShapes.map(s => s.id))}
+                    title="Bring Forward"
+                    style={{ backgroundColor: '#444', border: 'none', borderRadius: '4px', padding: '4px', color: 'white', cursor: 'pointer' }}
+                >
+                    <ArrowUp size={16} />
+                </button>
+                <button
+                    onClick={() => editor.sendBackward(selectedShapes.map(s => s.id))}
+                    title="Send Backward"
+                    style={{ backgroundColor: '#444', border: 'none', borderRadius: '4px', padding: '4px', color: 'white', cursor: 'pointer' }}
+                >
+                    <ArrowDown size={16} />
+                </button>
+                <button
+                    onClick={() => editor.sendToBack(selectedShapes.map(s => s.id))}
+                    title="Send to Back"
+                    style={{ backgroundColor: '#444', border: 'none', borderRadius: '4px', padding: '4px', color: 'white', cursor: 'pointer' }}
+                >
+                    <SendToBack size={16} />
+                </button>
             </div>
         </div>
     )

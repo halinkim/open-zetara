@@ -93,6 +93,9 @@ export function CanvasBoard() {
                 // Convert shapes back to old format
                 const oldItems = migrateNewToOld(state.shapes, state.assets)
                 console.log('Migrated items for save:', oldItems.length)
+                if (oldItems.length > 0) {
+                    console.log('First item index:', (oldItems[0] as any).index)
+                }
 
                 await api.canvas.save(selectedPaperId, JSON.stringify(oldItems))
             } catch (error) {
