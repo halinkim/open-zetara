@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
-import { db } from '@/db/schema';
+import { api } from '@/lib/api';
 import { PdfPage } from './PdfPage';
 import { ZoomIn, ZoomOut, Maximize, Minimize, MousePointer2, Type } from 'lucide-react';
 import { initPdfWorker } from '@/lib/pdfInit';
@@ -33,10 +33,14 @@ export function PdfViewer() {
                 // Dynamic import
                 const pdfjsLib = await initPdfWorker();
 
-                const paper = await db.papers.get(selectedPaperId);
-                if (!paper || !paper.pdfBlob) return;
+                // Fetch paper metadata to ensure it exists
+                // const paper = await api.papers.get(selectedPaperId);
 
-                const arrayBuffer = await paper.pdfBlob.arrayBuffer();
+                // Fetch PDF blob from API
+                const response = await fetch(api.papers.getPdfUrl(selectedPaperId));
+                if (!response.ok) throw new Error('Failed to fetch PDF');
+
+                const arrayBuffer = await response.arrayBuffer();
                 const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
                 const doc = await loadingTask.promise;
 

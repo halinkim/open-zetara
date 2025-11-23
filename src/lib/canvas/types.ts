@@ -1,4 +1,4 @@
-export type CanvasItemType = 'pointer' | 'text' | 'shape' | 'connector';
+export type CanvasItemType = 'pointer' | 'text' | 'shape' | 'connector' | 'image';
 
 export interface BaseCanvasItem {
     id: string;
@@ -29,6 +29,17 @@ export interface ShapeItem extends BaseCanvasItem {
     type: 'shape';
     shapeType: 'rectangle' | 'circle' | 'arrow';
     color: string;
+    fill?: string;
+    dash?: string;
+    size?: string;
+    strokeWidth?: number;
+    opacity?: number;
+    // Arrow specific
+    start?: { x: number, y: number };
+    end?: { x: number, y: number };
+    bend?: number;
+    arrowheadStart?: string;
+    arrowheadEnd?: string;
 }
 
 export type ConnectionAnchor = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
@@ -44,7 +55,12 @@ export interface ConnectorItem extends BaseCanvasItem {
     strokeWidth: number;
 }
 
-export type CanvasItem = PointerItem | TextItem | ShapeItem | ConnectorItem;
+export interface ImageItem extends BaseCanvasItem {
+    type: 'image';
+    image: string; // Base64 or URL
+}
+
+export type CanvasItem = PointerItem | TextItem | ShapeItem | ConnectorItem | ImageItem;
 
 export interface CanvasState {
     items: CanvasItem[];

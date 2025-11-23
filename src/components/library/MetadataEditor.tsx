@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Paper, db } from '@/db/schema';
+import { Paper } from '@/db/schema';
+import { api } from '@/lib/api';
+import { useAppStore } from '@/lib/store';
 import { fetchCrossrefMetadata, searchCrossref } from '@/lib/metadataUtils';
 import { X, Search, Download, Save, Loader2 } from 'lucide-react';
 
@@ -14,6 +16,7 @@ export function MetadataEditor({ paperId, onClose }: MetadataEditorProps) {
     const [paper, setPaper] = useState<Paper | null>(null);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(false);
+    const { triggerUpdate } = useAppStore();
 
     // Form state
     const [title, setTitle] = useState('');
@@ -25,15 +28,19 @@ export function MetadataEditor({ paperId, onClose }: MetadataEditorProps) {
 
     useEffect(() => {
         const loadPaper = async () => {
-            const p = await db.papers.get(paperId);
-            if (p) {
-                setPaper(p);
-                setTitle(p.title || '');
-                setAuthors(p.authors?.join(', ') || '');
-                setJournal(p.journal || '');
-                setYear(p.year || '');
-                setDoi(p.doi || '');
-                setUrl(p.url || '');
+            try {
+                const p = await api.papers.get(paperId);
+                if (p) {
+                    setPaper(p);
+                    setTitle(p.title || '');
+                    setAuthors(p.authors?.join(', ') || '');
+                    setJournal(p.journal || '');
+                    setYear(p.year || '');
+                    setDoi(p.doi || '');
+                    setUrl(p.url || '');
+                }
+            } catch (error) {
+                console.error('Failed to load paper:', error);
             }
         };
         loadPaper();
@@ -44,7 +51,8 @@ export function MetadataEditor({ paperId, onClose }: MetadataEditorProps) {
 
         setLoading(true);
         try {
-            await db.papers.update(paper.id, {
+            await api.papers.update({
+                ...paper,
                 title,
                 authors: authors.split(',').map(a => a.trim()).filter(a => a),
                 journal,
@@ -52,6 +60,7 @@ export function MetadataEditor({ paperId, onClose }: MetadataEditorProps) {
                 doi,
                 url
             });
+            triggerUpdate();
             onClose();
         } catch (error) {
             console.error('Error saving metadata:', error);

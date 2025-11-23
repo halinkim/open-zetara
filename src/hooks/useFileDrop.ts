@@ -1,9 +1,12 @@
 import { useCallback, useState } from 'react';
-import { db } from '@/db/schema';
 import { extractPdfMetadata, fetchCrossrefMetadata } from '@/lib/metadataUtils';
+import { useAppStore } from '@/lib/store';
+import { Paper } from '@/db/schema';
+import { api } from '@/lib/api';
 
 export function useFileDrop() {
     const [processing, setProcessing] = useState(false);
+    const { setSelectedPaperId } = useAppStore();
 
     const handleDrop = useCallback(async (e: React.DragEvent) => {
         e.preventDefault();
@@ -24,30 +27,40 @@ export function useFileDrop() {
                 if (metadata.doi) {
                     try {
                         const crossrefData = await fetchCrossrefMetadata(metadata.doi);
-                        metadata = { ...metadata, ...crossrefData }; // Crossref data overrides PDF data
+                        metadata = { ...metadata, ...crossrefData };
                     } catch (err) {
                         console.warn(`Failed to fetch Crossref data for DOI ${metadata.doi}`, err);
                     }
                 }
 
-                // 3. Save to DB
-                await db.papers.add({
+                // 3. Save to API
+                const paper: Paper = {
                     title: metadata.title || file.name.replace('.pdf', ''),
                     authors: metadata.authors || ['Unknown'],
                     journal: metadata.journal,
-                    doi: metadata.doi,
                     year: metadata.year,
+                    doi: metadata.doi,
                     url: metadata.url,
+                    tags: [],
+                    isFavorite: false,
                     pdfBlob: file,
-                    createdAt: Date.now(),
-                });
+                    createdAt: Date.now()
+                };
+
+                const savedPaper = await api.papers.create(file, paper);
+
+                // Select the new paper
+                if (savedPaper.id) {
+                    setSelectedPaperId(savedPaper.id);
+                    useAppStore.getState().triggerUpdate();
+                }
             }
         } catch (error) {
             console.error('Error processing PDF:', error);
         } finally {
             setProcessing(false);
         }
-    }, []);
+    }, [setSelectedPaperId]);
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db, Paper } from '@/db/schema';
+import React, { useState, useMemo, useEffect } from 'react';
+import { api } from '@/lib/api';
+import { Paper } from '@/db/schema';
 import { format } from 'date-fns';
 import { ChevronDown, ChevronUp, MoreHorizontal, Edit2, Trash2, FileText } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
@@ -16,11 +16,25 @@ type SortField = 'title' | 'authors' | 'year' | 'journal' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
 
 export function LibraryTable({ onOpenReader, onSelectionChange }: LibraryTableProps) {
-    const papers = useLiveQuery(() => db.papers.toArray());
+    const [papers, setPapers] = useState<Paper[]>([]);
+    const { lastUpdate, triggerUpdate } = useAppStore();
     const [sortField, setSortField] = useState<SortField>('createdAt');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; paperId: number } | null>(null);
+
+    const fetchPapers = async () => {
+        try {
+            const data = await api.papers.list();
+            setPapers(data);
+        } catch (error) {
+            console.error('Failed to load papers:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchPapers();
+    }, [lastUpdate]);
 
     // ... sort logic ...
 
@@ -76,11 +90,12 @@ export function LibraryTable({ onOpenReader, onSelectionChange }: LibraryTablePr
 
     const handleDelete = async (id: number) => {
         if (confirm('Are you sure you want to delete this paper?')) {
-            await db.papers.delete(id);
-            // Also delete associated canvas
-            const canvas = await db.canvases.where('paperId').equals(id).first();
-            if (canvas && canvas.id) {
-                await db.canvases.delete(canvas.id);
+            try {
+                await api.papers.delete(id);
+                triggerUpdate(); // Refresh list
+            } catch (error) {
+                console.error('Failed to delete paper:', error);
+                alert('Failed to delete paper');
             }
         }
     };

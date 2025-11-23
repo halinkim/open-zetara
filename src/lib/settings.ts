@@ -41,6 +41,9 @@ export class SettingsManager {
     }
 
     private loadSettings(): AppSettings {
+        if (typeof window === 'undefined') {
+            return { ...DEFAULT_SETTINGS };
+        }
         try {
             const stored = localStorage.getItem(SETTINGS_KEY);
             if (stored) {

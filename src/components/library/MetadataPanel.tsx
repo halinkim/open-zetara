@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { db, Paper } from '@/db/schema';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { api } from '@/lib/api';
+import { Paper } from '@/db/schema';
+import { useAppStore } from '@/lib/store';
 import { fetchCrossrefMetadata } from '@/lib/metadataUtils';
 import { Loader2, Save, X, Globe, Book, Calendar, User, Tag, ExternalLink } from 'lucide-react';
 
@@ -12,24 +13,34 @@ interface MetadataPanelProps {
 }
 
 export function MetadataPanel({ paperId, onClose }: MetadataPanelProps) {
-    const paper = useLiveQuery(() => db.papers.get(paperId), [paperId]);
+    const [paper, setPaper] = useState<Paper | null>(null);
     const [formData, setFormData] = useState<Partial<Paper>>({});
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(false);
+    const { triggerUpdate } = useAppStore();
 
     useEffect(() => {
-        if (paper) {
-            setFormData({
-                title: paper.title,
-                authors: paper.authors,
-                journal: paper.journal || '',
-                year: paper.year || '',
-                doi: paper.doi || '',
-                url: paper.url || '',
-                tags: paper.tags || [],
-            });
+        const loadPaper = async () => {
+            try {
+                const data = await api.papers.get(paperId);
+                setPaper(data);
+                setFormData({
+                    title: data.title,
+                    authors: data.authors,
+                    journal: data.journal || '',
+                    year: data.year || '',
+                    doi: data.doi || '',
+                    url: data.url || '',
+                    tags: data.tags || [],
+                });
+            } catch (error) {
+                console.error('Failed to load paper:', error);
+            }
+        };
+        if (paperId) {
+            loadPaper();
         }
-    }, [paper]);
+    }, [paperId]);
 
     const handleChange = (field: keyof Paper, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -46,14 +57,16 @@ export function MetadataPanel({ paperId, onClose }: MetadataPanelProps) {
     };
 
     const handleSave = async () => {
-        if (!paperId) return;
+        if (!paperId || !paper) return;
         setLoading(true);
         try {
-            await db.papers.update(paperId, {
+            await api.papers.update({
+                ...paper,
                 ...formData,
                 title: formData.title || 'Untitled',
                 authors: formData.authors || ['Unknown'],
-            });
+            } as Paper);
+            triggerUpdate();
         } catch (error) {
             console.error('Failed to save metadata:', error);
         } finally {

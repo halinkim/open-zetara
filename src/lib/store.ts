@@ -7,6 +7,8 @@ interface AppState {
     setSelectedPaperId: (id: number | null) => void;
     navigationTarget: { pdfId: number; page: number; rect?: { x: number; y: number; width: number; height: number } } | null;
     setNavigationTarget: (target: { pdfId: number; page: number; rect?: { x: number; y: number; width: number; height: number } } | null) => void;
+    lastUpdate: number;
+    triggerUpdate: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -16,4 +18,6 @@ export const useAppStore = create<AppState>((set) => ({
     setSelectedPaperId: (id) => set({ selectedPaperId: id }),
     navigationTarget: null,
     setNavigationTarget: (target) => set({ navigationTarget: target }),
+    lastUpdate: 0,
+    triggerUpdate: () => set({ lastUpdate: Date.now() }),
 }));

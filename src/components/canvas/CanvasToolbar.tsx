@@ -3,7 +3,7 @@
 import React from 'react';
 import { MousePointer2, Type, Square, Circle, ArrowRight, Eraser, Minus } from 'lucide-react';
 
-export type CanvasTool = 'select' | 'text' | 'rect' | 'circle' | 'arrow' | 'line' | 'eraser';
+export type CanvasTool = 'select' | 'text' | 'rect' | 'circle' | 'arrow' | 'line' | 'eraser' | 'connector';
 
 interface CanvasToolbarProps {
     currentTool: CanvasTool;

@@ -90,7 +90,7 @@ export class Editor {
         if (!shape) return
 
         const before = this.captureState()
-        this.state.shapes[id] = { ...shape, ...partial }
+        this.state.shapes[id] = { ...shape, ...partial } as Shape
         const after = this.captureState()
         this.recordHistory(before, after, 'Update shape')
 

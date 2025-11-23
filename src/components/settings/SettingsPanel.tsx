@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { settingsManager, AppSettings, DEFAULT_SETTINGS } from '@/lib/settings';
-import { RotateCcw } from 'lucide-react';
+import { api } from '@/lib/api';
+import { RotateCcw, Download, Upload } from 'lucide-react';
 
 export function SettingsPanel() {
     const [settings, setSettings] = useState<AppSettings>(settingsManager.getSettings());
@@ -196,6 +197,88 @@ export function SettingsPanel() {
                                     <option value="dark">Dark</option>
                                     <option value="light">Light</option>
                                 </select>
+                            </SettingItem>
+                        </SettingSection>
+
+                        {/* Data Management */}
+                        <SettingSection title="Data Management">
+                            <SettingItem
+                                label="Export Library"
+                                description="Download a backup of all papers and canvas data"
+                            >
+                                <button
+                                    onClick={() => api.system.export()}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '6px 12px',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontSize: '13px'
+                                    }}
+                                >
+                                    <Download size={14} />
+                                    Export Data
+                                </button>
+                            </SettingItem>
+
+                            <SettingItem
+                                label="Import Library"
+                                description="Restore library from a backup file (ZIP)"
+                            >
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="file"
+                                        accept=".zip"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                if (confirm('This will overwrite your current library. Are you sure?')) {
+                                                    try {
+                                                        await api.system.import(file);
+                                                        alert('Import successful! Reloading...');
+                                                        window.location.reload();
+                                                    } catch (error) {
+                                                        console.error('Import failed:', error);
+                                                        alert('Import failed. Please check the console.');
+                                                    }
+                                                }
+                                            }
+                                            // Reset input
+                                            e.target.value = '';
+                                        }}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            width: '100%',
+                                            height: '100%',
+                                            opacity: 0,
+                                            cursor: 'pointer'
+                                        }}
+                                    />
+                                    <button
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            padding: '6px 12px',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            border: '1px solid var(--border-color)',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            fontSize: '13px'
+                                        }}
+                                    >
+                                        <Upload size={14} />
+                                        Import Data
+                                    </button>
+                                </div>
                             </SettingItem>
                         </SettingSection>
                     </div>

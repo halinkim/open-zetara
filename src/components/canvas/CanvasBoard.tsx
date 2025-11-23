@@ -3,9 +3,11 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { CanvasItem, ConnectionAnchor, ConnectorItem } from '@/lib/canvas/types';
 import { useAppStore } from '@/lib/store';
-import { db } from '@/db/schema';
+import { api } from '@/lib/api';
 import { CanvasToolbar, CanvasTool } from './CanvasToolbar';
 import { getAnchorPosition, generateBezierPath, ANCHOR_POSITIONS, isPointNearPath } from '@/lib/canvas/connectorUtils';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 export function CanvasBoard() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -40,8 +42,7 @@ export function CanvasBoard() {
 
         const loadCanvas = async () => {
             try {
-                // Find canvas for this paper
-                const canvas = await db.canvases.where('paperId').equals(selectedPaperId).first();
+                const canvas = await api.canvas.get(selectedPaperId);
                 if (canvas && canvas.elements) {
                     setItems(JSON.parse(canvas.elements));
                 } else {
@@ -49,6 +50,7 @@ export function CanvasBoard() {
                 }
             } catch (error) {
                 console.error('Error loading canvas:', error);
+                setItems([]);
             }
         };
 
@@ -61,18 +63,7 @@ export function CanvasBoard() {
 
         const saveCanvas = async () => {
             try {
-                const existing = await db.canvases.where('paperId').equals(selectedPaperId).first();
-                const data = {
-                    paperId: selectedPaperId,
-                    elements: JSON.stringify(items),
-                    updatedAt: Date.now()
-                };
-
-                if (existing && existing.id) {
-                    await db.canvases.update(existing.id, data);
-                } else {
-                    await db.canvases.add(data);
-                }
+                await api.canvas.save(selectedPaperId, JSON.stringify(items));
             } catch (error) {
                 console.error('Error saving canvas:', error);
             }
@@ -103,6 +94,7 @@ export function CanvasBoard() {
             if (e.ctrlKey || e.metaKey) {
                 // Zoom
                 e.preventDefault();
+                e.stopPropagation();
                 const zoomSensitivity = 0.001;
                 const delta = -e.deltaY * zoomSensitivity;
 
@@ -113,6 +105,7 @@ export function CanvasBoard() {
             } else {
                 // Pan
                 e.preventDefault(); // Prevent browser back/forward swipe
+                e.stopPropagation();
                 setOffset(prev => ({
                     x: prev.x - e.deltaX,
                     y: prev.y - e.deltaY
@@ -465,6 +458,67 @@ export function CanvasBoard() {
         });
     };
 
+    const handleExport = async (format: 'png' | 'pdf') => {
+        const element = containerRef.current?.querySelector('.canvas-world') as HTMLElement;
+        if (!element) return;
+
+        try {
+            // Temporarily reset transform to capture full canvas
+            const originalTransform = element.style.transform;
+            element.style.transform = 'none';
+
+            // Calculate bounds of all items to crop efficiently
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            items.forEach(item => {
+                minX = Math.min(minX, item.x);
+                minY = Math.min(minY, item.y);
+                maxX = Math.max(maxX, item.x + item.width);
+                maxY = Math.max(maxY, item.y + item.height);
+            });
+
+            // Add padding
+            const padding = 50;
+            minX -= padding;
+            minY -= padding;
+            maxX += padding;
+            maxY += padding;
+
+            const width = maxX - minX;
+            const height = maxY - minY;
+
+            const canvas = await html2canvas(element, {
+                backgroundColor: '#1e1e1e', // Match canvas background
+                x: minX,
+                y: minY,
+                width: width,
+                height: height,
+                scale: 2 // Higher quality
+            });
+
+            // Restore transform
+            element.style.transform = originalTransform;
+
+            if (format === 'png') {
+                const link = document.createElement('a');
+                link.download = `canvas-export-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } else if (format === 'pdf') {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF({
+                    orientation: width > height ? 'landscape' : 'portrait',
+                    unit: 'px',
+                    format: [width, height]
+                });
+                pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+                pdf.save(`canvas-export-${Date.now()}.pdf`);
+            }
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('Export failed');
+        }
+    };
+
     return (
         <div
             ref={containerRef}
@@ -487,6 +541,47 @@ export function CanvasBoard() {
             onDragOver={handleDragOver}
         >
             <CanvasToolbar currentTool={currentTool} onToolChange={setCurrentTool} />
+
+            {/* Export Controls */}
+            <div style={{
+                position: 'absolute',
+                top: 20,
+                right: 20,
+                display: 'flex',
+                gap: '10px',
+                zIndex: 100
+            }}>
+                <button
+                    onClick={() => handleExport('png')}
+                    style={{
+                        backgroundColor: '#333',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '6px 12px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                >
+                    Save Image
+                </button>
+                <button
+                    onClick={() => handleExport('pdf')}
+                    style={{
+                        backgroundColor: '#333',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '6px 12px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                >
+                    Save PDF
+                </button>
+            </div>
 
             <div
                 className="canvas-world"

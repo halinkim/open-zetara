@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { useEditor, useEditorState } from '@/lib/canvas/editor'
-import { db } from '@/db/schema'
+import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { migrateOldToNew, migrateNewToOld } from '@/lib/canvas/migration'
 import { CanvasToolbar, CanvasTool } from './CanvasToolbar'
@@ -34,15 +34,22 @@ export function CanvasBoard2() {
         snapLines
     } = useCanvasInteraction(editor, containerRef, currentTool, setCurrentTool)
 
+    const loadedPaperId = useRef<number | null>(null)
+
     // Load canvas data when paper changes
     useEffect(() => {
         if (!selectedPaperId) {
             return
         }
 
+        // Reset loaded state when ID changes
+        if (loadedPaperId.current !== selectedPaperId) {
+            loadedPaperId.current = null
+        }
+
         const loadCanvas = async () => {
             try {
-                const canvas = await db.canvases.where('paperId').equals(selectedPaperId).first()
+                const canvas = await api.canvas.get(selectedPaperId)
 
                 if (canvas && canvas.elements) {
                     // Parse old format
@@ -60,6 +67,9 @@ export function CanvasBoard2() {
                         camera: state.camera, // Keep current camera
                     })
                 }
+                // Mark as loaded
+                console.log('Canvas loaded for paper:', selectedPaperId)
+                loadedPaperId.current = selectedPaperId
             } catch (error) {
                 console.error('Error loading canvas:', error)
             }
@@ -71,24 +81,20 @@ export function CanvasBoard2() {
     // Save canvas data when it changes
     useEffect(() => {
         if (!selectedPaperId) return
+        // Don't save if we haven't loaded the current paper yet
+        if (loadedPaperId.current !== selectedPaperId) {
+            console.log('Skipping save: Canvas not loaded yet', { loaded: loadedPaperId.current, selected: selectedPaperId })
+            return
+        }
 
         const saveCanvas = async () => {
             try {
+                console.log('Saving canvas...', { shapes: Object.keys(state.shapes).length, assets: Object.keys(state.assets).length })
                 // Convert shapes back to old format
                 const oldItems = migrateNewToOld(state.shapes, state.assets)
+                console.log('Migrated items for save:', oldItems.length)
 
-                const existing = await db.canvases.where('paperId').equals(selectedPaperId).first()
-                const data = {
-                    paperId: selectedPaperId,
-                    elements: JSON.stringify(oldItems),
-                    updatedAt: Date.now(),
-                }
-
-                if (existing && existing.id) {
-                    await db.canvases.update(existing.id, data)
-                } else {
-                    await db.canvases.add(data)
-                }
+                await api.canvas.save(selectedPaperId, JSON.stringify(oldItems))
             } catch (error) {
                 console.error('Error saving canvas:', error)
             }
@@ -99,7 +105,6 @@ export function CanvasBoard2() {
         return () => clearTimeout(timeoutId)
     }, [state.shapes, state.assets, selectedPaperId])
 
-    // Handle keyboard shortcuts
     // Handle keyboard shortcuts
     useKeyboardShortcuts(editor)
 

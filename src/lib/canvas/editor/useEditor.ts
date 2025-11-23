@@ -30,11 +30,16 @@ export function useEditor(initialState?: Partial<CanvasState>): Editor {
  * Subscribes to editor changes
  */
 export function useEditorState(editor: Editor): CanvasState {
-    const [state, setState] = useState(() => editor.getState())
+    const [state, setState] = useState(() => ({ ...editor.getState() }))
 
     useEffect(() => {
         const unsubscribe = editor.subscribe(() => {
-            setState(editor.getState())
+            const currentState = editor.getState()
+            setState({
+                ...currentState,
+                shapes: { ...currentState.shapes },
+                assets: { ...currentState.assets }
+            })
         })
 
         return unsubscribe

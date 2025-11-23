@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Editor } from '@/lib/canvas/editor/Editor'
 import { CanvasTool } from '../CanvasToolbar'
 import { BaseShape, PointerShape, Shape, ConnectionAnchor } from '@/lib/canvas/shapes/types'
@@ -177,16 +177,18 @@ export function useCanvasInteraction(
     const [draggingHandle, setDraggingHandle] = useState<{ shapeId: string, handle: 'start' | 'end' } | null>(null)
     const [snapLines, setSnapLines] = useState<SnapLine[]>([])
     const { setNavigationTarget } = useAppStore()
+    const batchStarted = useRef(false)
 
-    // Handle wheel for zoom/pan
     useEffect(() => {
         const container = containerRef.current
         if (!container) return
 
-        const handleWheel = (e: any) => {
+        const handleWheel = (e: WheelEvent) => {
             if (e.ctrlKey || e.metaKey) {
                 // Zoom
                 e.preventDefault()
+                e.stopPropagation()
+                e.stopImmediatePropagation()
                 const delta = -e.deltaY * 0.001
                 const camera = editor.getCamera()
                 editor.setCamera({
@@ -195,6 +197,8 @@ export function useCanvasInteraction(
             } else {
                 // Pan
                 e.preventDefault()
+                e.stopPropagation()
+                e.stopImmediatePropagation()
                 const camera = editor.getCamera()
                 editor.setCamera({
                     x: camera.x - e.deltaX,
@@ -204,7 +208,10 @@ export function useCanvasInteraction(
         }
 
         container.addEventListener('wheel', handleWheel, { passive: false })
-        return () => container.removeEventListener('wheel', handleWheel)
+
+        return () => {
+            container.removeEventListener('wheel', handleWheel)
+        }
     }, [editor, containerRef])
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -220,6 +227,10 @@ export function useCanvasInteraction(
 
         // Only handle left click for tools
         if (e.button !== 0) return
+
+        // Start history batch
+        editor.startBatch('interaction')
+        batchStarted.current = true
 
         // Check for handle click
         const target = e.target as HTMLElement | SVGElement
@@ -355,9 +366,9 @@ export function useCanvasInteraction(
     }
 
     const handleMouseMove = (e: React.MouseEvent) => {
+        if (!containerRef.current) return
         const camera = editor.getCamera()
-        const rect = containerRef.current?.getBoundingClientRect()
-        if (!rect) return
+        const rect = containerRef.current.getBoundingClientRect()
         const screenPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top }
         const worldPoint = editor.screenToWorld(screenPoint)
 
@@ -541,6 +552,11 @@ export function useCanvasInteraction(
     }
 
     const handleMouseUp = () => {
+        if (batchStarted.current) {
+            editor.endBatch('interaction')
+            batchStarted.current = false
+        }
+
         setIsPanning(false)
         setDraggedShape(null)
         setResizing(null)

@@ -84,7 +84,12 @@ export function areStatesEqual(a: EditorStateSnapshot, b: EditorStateSnapshot): 
     // Check shape IDs
     if (!aKeys.every(id => bKeys.includes(id))) return false
 
-    // For performance, we don't do deep comparison of shapes
-    // The history system will handle actual state changes
+    // Check shape content
+    for (const id of aKeys) {
+        if (JSON.stringify(a.shapes[id]) !== JSON.stringify(b.shapes[id])) {
+            return false
+        }
+    }
+
     return true
 }

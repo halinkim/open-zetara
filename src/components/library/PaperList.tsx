@@ -1,19 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/db/schema';
+import React, { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
+import { Paper } from '@/db/schema';
 import { useAppStore } from '@/lib/store';
 import { MetadataEditor } from './MetadataEditor';
 import { Edit2, Search } from 'lucide-react';
 
 export function PaperList() {
-    const papers = useLiveQuery(() => db.papers.toArray());
-    const { selectedPaperId, setSelectedPaperId } = useAppStore();
+    const [papers, setPapers] = useState<Paper[]>([]);
+    const { selectedPaperId, setSelectedPaperId, lastUpdate } = useAppStore();
     const [editingPaperId, setEditingPaperId] = useState<number | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [loading, setLoading] = useState(true);
 
-    if (!papers) return null;
+    const fetchPapers = async () => {
+        try {
+            const data = await api.papers.list();
+            setPapers(data);
+        } catch (error) {
+            console.error('Failed to load papers:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchPapers();
+        // Poll for updates or setup a refresh mechanism if needed
+        // For now, we can refresh on focus or manually
+        const interval = setInterval(fetchPapers, 5000); // Simple polling for now
+        return () => clearInterval(interval);
+    }, [lastUpdate]);
 
     const filteredPapers = papers.filter(paper => {
         if (!searchQuery) return true;
@@ -25,6 +43,10 @@ export function PaperList() {
             paper.tags?.some(t => t.toLowerCase().includes(query))
         );
     });
+
+    if (loading && papers.length === 0) {
+        return <div style={{ padding: '20px', color: 'var(--text-secondary)' }}>Loading...</div>;
+    }
 
     return (
         <>
@@ -115,9 +137,13 @@ export function PaperList() {
             {editingPaperId && (
                 <MetadataEditor
                     paperId={editingPaperId}
-                    onClose={() => setEditingPaperId(null)}
+                    onClose={() => {
+                        setEditingPaperId(null);
+                        fetchPapers(); // Refresh after edit
+                    }}
                 />
             )}
         </>
     );
 }
+
