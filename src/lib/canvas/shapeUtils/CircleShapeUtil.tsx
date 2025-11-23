@@ -13,18 +13,19 @@ export class CircleShapeUtil extends ShapeUtil<CircleShape> {
     getDefaultProps(): CircleShapeProps {
         return {
             fill: 'transparent',
-            stroke: '#ffffff',
             strokeWidth: 2,
         }
     }
 
     /**
      * Get stroke color from props
-     * Priority: direct stroke > color style prop > default
+     * Priority: color style prop > direct stroke > default
      */
     private getStrokeColor(props: CircleShapeProps): string {
-        if (props.stroke) return props.stroke
+        // If color is set via style panel, use it
         if (props.color) return getColorValue(props.color)
+        // Otherwise use direct stroke (for backward compatibility)
+        if (props.stroke) return props.stroke
         return '#ffffff'
     }
 

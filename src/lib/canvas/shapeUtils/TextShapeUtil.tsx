@@ -14,7 +14,7 @@ export class TextShapeUtil extends ShapeUtil<TextShape> {
         return {
             text: 'Double click to edit',
             fontSize: 16,
-            color: 'black',
+            color: 'white',
             fontFamily: 'Inter, sans-serif',
             textAlign: 'left',
         }

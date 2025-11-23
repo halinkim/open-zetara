@@ -48,7 +48,7 @@ export function StylePanel({ editor }: StylePanelProps) {
         >
             {/* Color Picker */}
             <div style={{ display: 'flex', gap: '4px' }}>
-                {['black', '#e03131', '#2f9e44', '#1971c2', '#f08c00'].map(color => (
+                {['white', '#e03131', '#2f9e44', '#1971c2', '#f08c00'].map(color => (
                     <button
                         key={color}
                         onClick={() => updateStyle('color', color)}

@@ -307,7 +307,6 @@ export function useCanvasInteraction(
                     startBinding,
                     arrowheadEnd: currentTool === 'arrow' ? 'arrow' : 'none',
                     strokeWidth: 2,
-                    color: 'black',
                     bend: 0,
                     arrowheadStart: 'none'
                 }

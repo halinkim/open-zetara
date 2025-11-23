@@ -2,6 +2,7 @@ import React from 'react'
 import { ArrowShape, ConnectionAnchor, Bounds } from '../shapes/types'
 import { ShapeUtil } from './ShapeUtil'
 import { useEditorContext } from '../context/EditorContext'
+import { getColorValue, getDashArray } from '../styles/styleUtils'
 
 // Helper to get anchor position from a shape
 function getAnchorPosition(shape: any, anchor: ConnectionAnchor): { x: number; y: number } {
@@ -92,14 +93,22 @@ function ArrowShapeInner({ shape, isSelected }: { shape: ArrowShape, isSelected:
         }
     }
 
-    // Map size to strokeWidth
+    // Get stroke width - Priority: size style prop > direct strokeWidth > default
     const sizeMap = {
         s: 2,
         m: 4,
         l: 6,
         xl: 8
     }
-    const strokeWidth = shape.props.strokeWidth || sizeMap[shape.props.size || 'm']
+    const strokeWidth = shape.props.size
+        ? sizeMap[shape.props.size]
+        : (shape.props.strokeWidth || 2)
+
+    // Get stroke color using utility function
+    const strokeColor = getColorValue(shape.props.color)
+
+    // Get dash array
+    const dashArray = getDashArray(shape.props.dash, strokeWidth)
 
     const path = generateBezierPath(absStart, absEnd, startAnchor, endAnchor, shape.props.bend)
 
@@ -114,7 +123,7 @@ function ArrowShapeInner({ shape, isSelected }: { shape: ArrowShape, isSelected:
                     refY="3.5"
                     orient="auto"
                 >
-                    <polygon points="0 0, 10 3.5, 0 7" fill={shape.props.color || 'black'} />
+                    <polygon points="0 0, 10 3.5, 0 7" fill={strokeColor} />
                 </marker>
                 <marker
                     id={`arrowhead-start-${shape.id}`}
@@ -124,15 +133,15 @@ function ArrowShapeInner({ shape, isSelected }: { shape: ArrowShape, isSelected:
                     refY="3.5"
                     orient="auto"
                 >
-                    <polygon points="10 0, 0 3.5, 10 7" fill={shape.props.color || 'black'} />
+                    <polygon points="10 0, 0 3.5, 10 7" fill={strokeColor} />
                 </marker>
             </defs>
             <path
                 d={path}
-                stroke={shape.props.color || 'black'}
+                stroke={strokeColor}
                 strokeWidth={strokeWidth}
                 fill="none"
-                strokeDasharray={shape.props.dash === 'dashed' ? '5,5' : shape.props.dash === 'dotted' ? '2,2' : undefined}
+                strokeDasharray={dashArray}
                 markerStart={shape.props.arrowheadStart === 'arrow' ? `url(#arrowhead-start-${shape.id})` : undefined}
                 markerEnd={shape.props.arrowheadEnd === 'arrow' ? `url(#arrowhead-end-${shape.id})` : undefined}
                 style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
@@ -177,7 +186,7 @@ export class ArrowShapeUtil extends ShapeUtil<ArrowShape> {
             start: { x: 0, y: 0 },
             end: { x: 100, y: 100 },
             strokeWidth: 2,
-            color: 'black',
+            color: 'white',
             arrowheadStart: 'none',
             arrowheadEnd: 'arrow',
             bend: 0

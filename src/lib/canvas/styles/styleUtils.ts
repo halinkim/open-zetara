@@ -38,11 +38,11 @@ const sizeToFontSize: Record<string, number> = {
  * Get CSS color value from color style prop
  */
 export function getColorValue(color?: string): string {
-    if (!color) return colorPalette.black
+    if (!color) return colorPalette.white
     // If it's already a hex color, return it
     if (color.startsWith('#')) return color
     // Otherwise look up in palette
-    return colorPalette[color] || colorPalette.black
+    return colorPalette[color] || colorPalette.white
 }
 
 /**

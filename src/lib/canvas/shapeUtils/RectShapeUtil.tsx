@@ -13,7 +13,6 @@ export class RectShapeUtil extends ShapeUtil<RectShape> {
     getDefaultProps(): RectShapeProps {
         return {
             fill: 'transparent',
-            stroke: '#ffffff',
             strokeWidth: 2,
             cornerRadius: 0,
         }
@@ -21,11 +20,13 @@ export class RectShapeUtil extends ShapeUtil<RectShape> {
 
     /**
      * Get stroke color from props
-     * Priority: direct stroke > color style prop > default
+     * Priority: color style prop > direct stroke > default
      */
     private getStrokeColor(props: RectShapeProps): string {
-        if (props.stroke) return props.stroke
+        // If color is set via style panel, use it
         if (props.color) return getColorValue(props.color)
+        // Otherwise use direct stroke (for backward compatibility)
+        if (props.stroke) return props.stroke
         return '#ffffff'
     }
 
