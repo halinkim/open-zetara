@@ -66,8 +66,12 @@ export type TextShape = BaseShape<'text', TextShapeProps>
 // Rectangle Shape
 // ============================================================================
 
-export interface RectShapeProps extends StyleProps {
-    strokeWidth: number // Keep for backward compatibility
+export interface RectShapeProps extends Omit<StyleProps, 'fill'> {
+    // fill can be either a direct CSS color OR a style fill value
+    fill?: string | 'none' | 'semi' | 'solid'
+    // Direct stroke color for backward compatibility
+    stroke?: string
+    strokeWidth: number
     cornerRadius: number
 }
 
@@ -77,7 +81,11 @@ export type RectShape = BaseShape<'rect', RectShapeProps>
 // Circle Shape
 // ============================================================================
 
-export interface CircleShapeProps extends StyleProps {
+export interface CircleShapeProps extends Omit<StyleProps, 'fill'> {
+    // fill can be either a direct CSS color OR a style fill value
+    fill?: string | 'none' | 'semi' | 'solid'
+    // Direct stroke color for backward compatibility
+    stroke?: string
     strokeWidth: number
 }
 
