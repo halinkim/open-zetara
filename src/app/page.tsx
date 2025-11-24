@@ -11,14 +11,15 @@ import { useAppStore } from "@/lib/store";
 import { CanvasBoard } from '@/components/canvas/CanvasBoard';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ResizableSplitPane } from '@/components/layout/ResizableSplitPane';
-import { Files, Settings, GitBranch, Loader2, Edit2 } from 'lucide-react';
+import { StatisticsPanel } from '@/components/statistics/StatisticsPanel';
+import { Files, Settings, GitBranch, Loader2, Edit2, BarChart2 } from 'lucide-react';
 import { useFileDrop } from '@/hooks/useFileDrop';
 
 export default function Home() {
   const { t } = useI18n();
   const { sidebarOpen, selectedPaperId, setSelectedPaperId } = useAppStore();
-  // Unified view state: 'library' | 'canvas' | 'settings'
-  const [activeView, setActiveView] = useState<'library' | 'canvas' | 'settings'>('library');
+  // Unified view state: 'library' | 'canvas' | 'settings' | 'statistics'
+  const [activeView, setActiveView] = useState<'library' | 'canvas' | 'settings' | 'statistics'>('library');
   const [selectedLibraryPaperIds, setSelectedLibraryPaperIds] = useState<number[]>([]);
   const { handleDrop, handleDragOver, processing } = useFileDrop();
 
@@ -76,6 +77,14 @@ export default function Home() {
           <Edit2 size={24} />
         </div>
         <div
+          className={`activity-icon ${activeView === 'statistics' ? 'active' : ''}`}
+          onClick={() => setActiveView('statistics')}
+          style={{ cursor: 'pointer' }}
+          title="Statistics"
+        >
+          <BarChart2 size={24} />
+        </div>
+        <div
           className={`activity-icon ${activeView === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveView('settings')}
           style={{ cursor: 'pointer' }}
@@ -120,8 +129,12 @@ export default function Home() {
         {/* Content */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
           {activeView === 'settings' ? (
-            <div style={{ padding: '20px', width: '100%', overflowY: 'auto' }}>
+            <div style={{ padding: '0', width: '100%', overflowY: 'auto' }}>
               <SettingsPanel />
+            </div>
+          ) : activeView === 'statistics' ? (
+            <div style={{ padding: '0', width: '100%', overflowY: 'auto' }}>
+              <StatisticsPanel />
             </div>
           ) : activeView === 'library' ? (
             <div style={{ display: 'flex', width: '100%', height: '100%' }}>
@@ -166,7 +179,12 @@ export default function Home() {
           <span>main</span>
         </div>
         <div className="status-item">
-          <span>{activeView === 'canvas' ? 'Reading' : activeView === 'library' ? 'Library' : 'Settings'}</span>
+          <span>
+            {activeView === 'canvas' ? 'Reading'
+              : activeView === 'library' ? 'Library'
+                : activeView === 'statistics' ? 'Statistics'
+                  : 'Settings'}
+          </span>
         </div>
       </footer>
     </main>

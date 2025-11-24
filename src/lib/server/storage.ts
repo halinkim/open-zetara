@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Paper, Canvas } from '@/db/schema';
 import { getConfig } from '@/config';
+import { ActivityService } from './activity';
 
 export class StorageService {
     private static getPaths() {
@@ -38,6 +39,12 @@ export class StorageService {
         const { pdfBlob, ...paperData } = newPaper;
         const jsonPath = path.join(PAPERS_DIR, `${id}.json`);
         await fs.writeFile(jsonPath, JSON.stringify(paperData, null, 2));
+
+        // Log activity
+        await ActivityService.logActivity('paper_added', {
+            paperId: id,
+            title: paper.title
+        });
 
         return newPaper;
     }
@@ -109,6 +116,16 @@ export class StorageService {
             updatedAt: Date.now()
         };
         await fs.writeFile(canvasPath, JSON.stringify(data, null, 2));
+
+        // Get paper title for log
+        const paperData = await this.getPaper(paperId);
+        const title = paperData?.paper.title || 'Unknown Paper';
+
+        // Log activity
+        await ActivityService.logActivity('canvas_edited', {
+            paperId,
+            title
+        });
     }
 
     static async getCanvas(paperId: number): Promise<Canvas | null> {
