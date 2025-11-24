@@ -62,7 +62,7 @@ export function getDefaultShapeProps<T extends ShapeType>(type: T): ShapePropsMa
                 authors: [],
                 year: '',
                 journal: ''
-            } as ShapePropsMap[T]
+            } as unknown as ShapePropsMap[T]
         default:
             throw new Error(`Unknown shape type: ${type}`)
     }
