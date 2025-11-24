@@ -5,6 +5,7 @@
  */
 
 import { Shape, ShapeId } from '../shapes/types'
+export type { Shape, ShapeId }
 import { Asset, AssetId } from '../assets/types'
 
 /**

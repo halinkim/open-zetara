@@ -69,5 +69,42 @@ export const api = {
             });
             if (!res.ok) throw new Error('Failed to import data');
         }
+    },
+    groups: {
+        list: async () => {
+            const res = await fetch('/api/groups');
+            if (!res.ok) throw new Error('Failed to fetch groups');
+            return res.json();
+        },
+        create: async (title: string) => {
+            const res = await fetch('/api/groups', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title })
+            });
+            if (!res.ok) throw new Error('Failed to create group');
+            return res.json();
+        },
+        get: async (id: string) => {
+            const res = await fetch(`/api/groups/${id}`);
+            if (!res.ok) throw new Error('Failed to fetch group');
+            return res.json();
+        },
+        update: async (id: string, data: any) => {
+            const res = await fetch(`/api/groups/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) throw new Error('Failed to update group');
+            return res.json();
+        },
+        delete: async (id: string) => {
+            const res = await fetch(`/api/groups/${id}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('Failed to delete group');
+            return res.json();
+        }
     }
 };

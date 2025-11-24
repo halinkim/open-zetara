@@ -55,6 +55,14 @@ export function getDefaultShapeProps<T extends ShapeType>(type: T): ShapePropsMa
             return {
                 assetId: '',
             } as ShapePropsMap[T]
+        case 'paper-node':
+            return {
+                paperId: 0,
+                title: '',
+                authors: [],
+                year: '',
+                journal: ''
+            } as ShapePropsMap[T]
         default:
             throw new Error(`Unknown shape type: ${type}`)
     }

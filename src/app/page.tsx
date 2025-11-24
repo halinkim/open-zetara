@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useI18n } from "@/lib/i18n/context";
 import { DropZone } from "@/components/library/DropZone";
 import { PaperList } from "@/components/library/PaperList";
@@ -12,14 +12,15 @@ import { CanvasBoard } from '@/components/canvas/CanvasBoard';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ResizableSplitPane } from '@/components/layout/ResizableSplitPane';
 import { StatisticsPanel } from '@/components/statistics/StatisticsPanel';
-import { Files, Settings, GitBranch, Loader2, Edit2, BarChart2 } from 'lucide-react';
+import { GroupPanel } from '@/components/groups/GroupPanel';
+import { Files, Settings, GitBranch, Loader2, Edit2, BarChart2, Folder } from 'lucide-react';
 import { useFileDrop } from '@/hooks/useFileDrop';
 
 export default function Home() {
   const { t } = useI18n();
   const { sidebarOpen, selectedPaperId, setSelectedPaperId } = useAppStore();
-  // Unified view state: 'library' | 'canvas' | 'settings' | 'statistics'
-  const [activeView, setActiveView] = useState<'library' | 'canvas' | 'settings' | 'statistics'>('library');
+  // Unified view state: 'library' | 'canvas' | 'settings' | 'statistics' | 'groups'
+  const [activeView, setActiveView] = useState<'library' | 'canvas' | 'settings' | 'statistics' | 'groups'>('library');
   const [selectedLibraryPaperIds, setSelectedLibraryPaperIds] = useState<number[]>([]);
   const { handleDrop, handleDragOver, processing } = useFileDrop();
 
@@ -27,6 +28,15 @@ export default function Home() {
     setSelectedPaperId(paperId);
     setActiveView('canvas');
   };
+
+  // Listen for paper navigation from group canvas
+  useEffect(() => {
+    const handleNavigateToPaper = () => {
+      setActiveView('canvas');
+    };
+    window.addEventListener('navigate-to-paper', handleNavigateToPaper);
+    return () => window.removeEventListener('navigate-to-paper', handleNavigateToPaper);
+  }, []);
 
   // Derived state for metadata panel
   const activePaperIdForMetadata = selectedLibraryPaperIds.length === 1 ? selectedLibraryPaperIds[0] : null;
@@ -85,6 +95,14 @@ export default function Home() {
           <BarChart2 size={24} />
         </div>
         <div
+          className={`activity-icon ${activeView === 'groups' ? 'active' : ''}`}
+          onClick={() => setActiveView('groups')}
+          style={{ cursor: 'pointer' }}
+          title="Groups"
+        >
+          <Folder size={24} />
+        </div>
+        <div
           className={`activity-icon ${activeView === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveView('settings')}
           style={{ cursor: 'pointer' }}
@@ -136,6 +154,10 @@ export default function Home() {
             <div style={{ padding: '0', width: '100%', overflowY: 'auto' }}>
               <StatisticsPanel />
             </div>
+          ) : activeView === 'groups' ? (
+            <div style={{ padding: '0', width: '100%', height: '100%' }}>
+              <GroupPanel />
+            </div>
           ) : activeView === 'library' ? (
             <div style={{ display: 'flex', width: '100%', height: '100%' }}>
               <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -183,7 +205,8 @@ export default function Home() {
             {activeView === 'canvas' ? 'Reading'
               : activeView === 'library' ? 'Library'
                 : activeView === 'statistics' ? 'Statistics'
-                  : 'Settings'}
+                  : activeView === 'groups' ? 'Groups'
+                    : 'Settings'}
           </span>
         </div>
       </footer>

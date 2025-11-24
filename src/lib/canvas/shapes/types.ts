@@ -10,7 +10,7 @@
 // ============================================================================
 
 export type ShapeId = string // 'shape:abc123'
-export type ShapeType = 'text' | 'rect' | 'circle' | 'arrow' | 'image' | 'pointer'
+export type ShapeType = 'text' | 'rect' | 'circle' | 'arrow' | 'image' | 'pointer' | 'paper-node'
 
 /**
  * Base interface for all shapes.
@@ -136,6 +136,20 @@ export interface PointerShapeProps {
 export type PointerShape = BaseShape<'pointer', PointerShapeProps>
 
 // ============================================================================
+// Paper Node Shape
+// ============================================================================
+
+export interface PaperNodeShapeProps {
+    paperId: number;
+    title: string;
+    authors: string[];
+    year: string;
+    journal?: string;
+}
+
+export type PaperNodeShape = BaseShape<'paper-node', PaperNodeShapeProps>
+
+// ============================================================================
 // Union Type
 // ============================================================================
 
@@ -146,6 +160,7 @@ export type Shape =
     | ArrowShape
     | ImageShape
     | PointerShape
+    | PaperNodeShape
 
 // ============================================================================
 // Helper Types
@@ -158,6 +173,7 @@ export type ShapePropsMap = {
     arrow: ArrowShapeProps
     image: ImageShapeProps
     pointer: PointerShapeProps
+    'paper-node': PaperNodeShapeProps
 }
 
 export type Vec2 = { x: number; y: number }

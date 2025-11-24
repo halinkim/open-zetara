@@ -9,6 +9,7 @@ export * from './CircleShapeUtil'
 export * from './ArrowShapeUtil'
 export * from './ImageShapeUtil'
 export * from './PointerShapeUtil'
+export * from './PaperNodeUtil'
 
 import { ShapeUtilRegistry } from './ShapeUtil'
 import { TextShapeUtil } from './TextShapeUtil'
@@ -17,6 +18,7 @@ import { CircleShapeUtil } from './CircleShapeUtil'
 import { ArrowShapeUtil } from './ArrowShapeUtil'
 import { ImageShapeUtil } from './ImageShapeUtil'
 import { PointerShapeUtil } from './PointerShapeUtil'
+import { PaperNodeUtil } from './PaperNodeUtil'
 
 /**
  * Create and populate the default shape util registry
@@ -30,6 +32,7 @@ export function createShapeUtilRegistry(): ShapeUtilRegistry {
     registry.register(new ArrowShapeUtil())
     registry.register(new ImageShapeUtil())
     registry.register(new PointerShapeUtil())
+    registry.register(new PaperNodeUtil())
 
     return registry
 }

@@ -5,7 +5,7 @@ import { getConfig } from '@/config';
 import { ActivityService } from './activity';
 
 export class StorageService {
-    private static getPaths() {
+    public static getPaths() {
         const config = getConfig();
         const STORAGE_ROOT = config.dataDir;
         return {
