@@ -85,20 +85,16 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* Sidebar - Show PaperList in Canvas mode (for quick switching) or Settings */}
-      {sidebarOpen && (activeView === 'canvas' || activeView === 'settings') && (
+      {/* Sidebar - Show PaperList in Canvas mode (for quick switching) */}
+      {sidebarOpen && activeView === 'canvas' && (
         <aside className="sidebar">
           <div className="sidebar-header">
             <span className="sidebar-title">
-              {activeView === 'canvas' ? t.library.title : 'Settings'}
+              {t.library.title}
             </span>
           </div>
           <div className="sidebar-content">
-            {activeView === 'canvas' ? (
-              <PaperList />
-            ) : (
-              <SettingsPanel />
-            )}
+            <PaperList />
           </div>
         </aside>
       )}

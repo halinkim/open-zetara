@@ -1,15 +1,22 @@
 import fs from 'fs/promises';
 import path from 'path';
-import os from 'os';
 import { Paper, Canvas } from '@/db/schema';
-
-const STORAGE_ROOT = path.join(os.homedir(), '.zetara');
-const PAPERS_DIR = path.join(STORAGE_ROOT, 'papers');
-const PDFS_DIR = path.join(STORAGE_ROOT, 'pdfs');
-const CANVAS_DIR = path.join(STORAGE_ROOT, 'canvas');
+import { getConfig } from '@/config';
 
 export class StorageService {
+    private static getPaths() {
+        const config = getConfig();
+        const STORAGE_ROOT = config.dataDir;
+        return {
+            STORAGE_ROOT,
+            PAPERS_DIR: path.join(STORAGE_ROOT, 'papers'),
+            PDFS_DIR: path.join(STORAGE_ROOT, 'pdfs'),
+            CANVAS_DIR: path.join(STORAGE_ROOT, 'canvas')
+        };
+    }
+
     static async ensureDirs() {
+        const { STORAGE_ROOT, PAPERS_DIR, PDFS_DIR, CANVAS_DIR } = this.getPaths();
         await fs.mkdir(STORAGE_ROOT, { recursive: true });
         await fs.mkdir(PAPERS_DIR, { recursive: true });
         await fs.mkdir(PDFS_DIR, { recursive: true });
@@ -18,6 +25,7 @@ export class StorageService {
 
     static async savePaper(paper: Paper, pdfBuffer: Buffer): Promise<Paper> {
         await this.ensureDirs();
+        const { PAPERS_DIR, PDFS_DIR } = this.getPaths();
 
         const id = paper.id || Date.now();
         const newPaper = { ...paper, id };
@@ -36,6 +44,7 @@ export class StorageService {
 
     static async getPapers(): Promise<Paper[]> {
         await this.ensureDirs();
+        const { PAPERS_DIR } = this.getPaths();
         const files = await fs.readdir(PAPERS_DIR);
         const papers: Paper[] = [];
 
@@ -44,10 +53,6 @@ export class StorageService {
             try {
                 const content = await fs.readFile(path.join(PAPERS_DIR, file), 'utf-8');
                 const paper = JSON.parse(content);
-                // We don't load the blob here to keep it light. 
-                // The frontend will request the PDF separately or we handle it via a specific route.
-                // For compatibility with the interface, we might need a placeholder or change the interface.
-                // For now, we'll cast it.
                 papers.push(paper as Paper);
             } catch (e) {
                 console.error(`Failed to read paper ${file}:`, e);
@@ -59,6 +64,7 @@ export class StorageService {
 
     static async getPaper(id: number): Promise<{ paper: Paper, pdfPath: string } | null> {
         await this.ensureDirs();
+        const { PAPERS_DIR, PDFS_DIR } = this.getPaths();
         const jsonPath = path.join(PAPERS_DIR, `${id}.json`);
         const pdfPath = path.join(PDFS_DIR, `${id}.pdf`);
 
@@ -73,6 +79,7 @@ export class StorageService {
 
     static async deletePaper(id: number) {
         await this.ensureDirs();
+        const { PAPERS_DIR, PDFS_DIR, CANVAS_DIR } = this.getPaths();
         const jsonPath = path.join(PAPERS_DIR, `${id}.json`);
         const pdfPath = path.join(PDFS_DIR, `${id}.pdf`);
         const canvasPath = path.join(CANVAS_DIR, `${id}.json`);
@@ -84,6 +91,7 @@ export class StorageService {
 
     static async updatePaper(paper: Paper) {
         await this.ensureDirs();
+        const { PAPERS_DIR } = this.getPaths();
         if (!paper.id) throw new Error("Paper ID required for update");
 
         const { pdfBlob, ...paperData } = paper;
@@ -93,6 +101,7 @@ export class StorageService {
 
     static async saveCanvas(paperId: number, elements: string) {
         await this.ensureDirs();
+        const { CANVAS_DIR } = this.getPaths();
         const canvasPath = path.join(CANVAS_DIR, `${paperId}.json`);
         const data: Canvas = {
             paperId,
@@ -104,6 +113,7 @@ export class StorageService {
 
     static async getCanvas(paperId: number): Promise<Canvas | null> {
         await this.ensureDirs();
+        const { CANVAS_DIR } = this.getPaths();
         const canvasPath = path.join(CANVAS_DIR, `${paperId}.json`);
         try {
             const content = await fs.readFile(canvasPath, 'utf-8');
@@ -114,6 +124,6 @@ export class StorageService {
     }
 
     static getStorageRoot() {
-        return STORAGE_ROOT;
+        return this.getPaths().STORAGE_ROOT;
     }
 }

@@ -5,6 +5,7 @@ export interface AppConfig {
     passwordHash: string | null;
     sessionSecret: string;
     sessionMaxAge: number;
+    dataDir: string;
 }
 
 let cachedConfig: AppConfig | null = null;
@@ -35,6 +36,7 @@ export function getConfig(): AppConfig {
         passwordHash: null,
         sessionSecret: 'dev-secret-please-change',
         sessionMaxAge: 86400,
+        dataDir: process.env.HOME ? `${process.env.HOME}/.zetara` : '.zetara',
     };
 
     return cachedConfig;

@@ -39,8 +39,8 @@ export function getDefaultShapeProps<T extends ShapeType>(type: T): ShapePropsMa
             } as ShapePropsMap[T]
         case 'arrow':
             return {
-                from: { type: 'point', x: 0, y: 0 },
-                to: { type: 'point', x: 100, y: 0 },
+                start: { x: 0, y: 0 },
+                end: { x: 100, y: 0 },
                 strokeWidth: 2,
                 color: '#ffffff',
                 arrowheadStart: 'none',

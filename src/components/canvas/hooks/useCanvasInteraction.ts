@@ -184,27 +184,15 @@ export function useCanvasInteraction(
         if (!container) return
 
         const handleWheel = (e: WheelEvent) => {
-            if (e.ctrlKey || e.metaKey) {
-                // Zoom
-                e.preventDefault()
-                e.stopPropagation()
-                e.stopImmediatePropagation()
-                const delta = -e.deltaY * 0.001
-                const camera = editor.getCamera()
-                editor.setCamera({
-                    zoom: Math.min(Math.max(camera.zoom + delta, 0.1), 5),
-                })
-            } else {
-                // Pan
-                e.preventDefault()
-                e.stopPropagation()
-                e.stopImmediatePropagation()
-                const camera = editor.getCamera()
-                editor.setCamera({
-                    x: camera.x - e.deltaX,
-                    y: camera.y - e.deltaY,
-                })
-            }
+            // Zoom (Mouse wheel only)
+            e.preventDefault()
+            e.stopPropagation()
+            e.stopImmediatePropagation()
+            const delta = -e.deltaY * 0.001
+            const camera = editor.getCamera()
+            editor.setCamera({
+                zoom: Math.min(Math.max(camera.zoom + delta, 0.1), 5),
+            })
         }
 
         container.addEventListener('wheel', handleWheel, { passive: false })
@@ -217,8 +205,8 @@ export function useCanvasInteraction(
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!containerRef.current) return
 
-        // Pan with Alt+click or middle mouse button
-        if (e.altKey || e.button === 1) {
+        // Pan with middle mouse button (keep this as backup)
+        if (e.button === 1) {
             e.preventDefault()
             setIsPanning(true)
             setPanStart({ x: e.clientX, y: e.clientY })
@@ -359,8 +347,15 @@ export function useCanvasInteraction(
             }
         } else {
             // Clicked on empty space
-            if (!e.shiftKey && !e.ctrlKey) {
-                editor.selectNone()
+            if (currentTool === 'select') {
+                // Clear selection
+                if (!e.shiftKey && !e.ctrlKey) {
+                    editor.selectNone()
+                }
+
+                // Start panning
+                setIsPanning(true)
+                setPanStart({ x: e.clientX, y: e.clientY })
             }
         }
     }

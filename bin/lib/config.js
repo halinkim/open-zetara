@@ -18,6 +18,7 @@ function getDefaultConfig() {
         passwordHash: null,
         sessionSecret: crypto.randomBytes(32).toString('hex'),
         sessionMaxAge: 86400,
+        dataDir: path.join(os.homedir(), '.zetara')
     };
 }
 
