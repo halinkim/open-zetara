@@ -30,21 +30,42 @@ program
         await startServer(directory, options);
     });
 
+// zetara config - 설정 확인
 // zetara password - 비밀번호 설정
 program
     .command('password')
     .description('Set a password for accessing the application')
     .action(async () => {
-        await setPassword();
+        try {
+            const result = await setPassword();
+            // result.status:
+            //  - 'updated'   : 정상적으로 비밀번호 설정
+            //  - 'disabled'  : 비밀번호 보호 비활성화
+            //  - 'unchanged' : 사용자가 비활성화 취소 선택 등으로 변경 없음
+            // 여기서는 추가 처리 없이도 자연스럽게 exit code 0으로 종료됨.
+        } catch (err) {
+            // 사용자가 입력 취소(Ctrl+C 등)
+            if (err && err.code === 'INPUT_CANCELED') {
+                console.log('\n↩️  Password setup canceled by user.');
+                process.exit(0);
+            }
+
+            // 의도적으로 던진 검증 관련 에러
+            if (err && err.name === 'PasswordSetupError') {
+                console.error(`\n❌ ${err.message}`);
+                process.exit(1);
+            }
+
+            // 그 외 예기치 못한 에러
+            console.error('\n❌ Unexpected error while setting password:');
+            if (err && err.stack) {
+                console.error(err.stack);
+            } else {
+                console.error(err);
+            }
+            process.exit(1);
+        }
     });
 
-// zetara config - 설정 확인
-program
-    .command('config')
-    .description('Show current configuration')
-    .option('--json', 'Output as JSON')
-    .action(async (options) => {
-        await showConfig(options);
-    });
 
 program.parse();
