@@ -2,7 +2,7 @@
   "name": "zetara",
   "version": "0.1.0",
   "description": "A powerful paper reading and annotation tool with canvas-based note-taking, inspired by Jupyter Lab",
-  "author": "Your Name <your.email@example.com>",
+  "author": "halinkim <iam@dckim.kr>",
   "license": "MIT",
   "keywords": [
     "paper-reader",
@@ -38,7 +38,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@types/adm-zip": "^0.5.7",
@@ -58,6 +59,7 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-markdown": "^10.1.0",
+    "read": "^5.0.1",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",
     "uuid": "^13.0.0",
