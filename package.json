@@ -1,10 +1,39 @@
 {
   "name": "zetara",
   "version": "0.1.0",
-  "private": true,
+  "description": "A powerful paper reading and annotation tool with canvas-based note-taking, inspired by Jupyter Lab",
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "keywords": [
+    "paper-reader",
+    "pdf-viewer",
+    "annotation",
+    "canvas",
+    "research",
+    "jupyter-like",
+    "academic"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/halinkim/open-zetara.git"
+  },
+  "homepage": "https://github.com/halinkim/open-zetara#readme",
+  "bugs": {
+    "url": "https://github.com/halinkim/open-zetara/issues"
+  },
   "bin": {
     "zetara": "./bin/zetara.js"
   },
+  "files": [
+    "bin/",
+    ".next/",
+    "public/",
+    "src/",
+    "next.config.ts",
+    "tsconfig.json",
+    "README.md",
+    "README_DEPLOYMENT.md"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
