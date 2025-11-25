@@ -1,6 +1,6 @@
 {
   "name": "zetara",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A powerful paper reading and annotation tool with canvas-based note-taking, inspired by Jupyter Lab",
   "author": "halinkim <iam@dckim.kr>",
   "license": "MIT",
