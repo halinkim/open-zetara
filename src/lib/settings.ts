@@ -1,6 +1,10 @@
+export type CompressionFormat = 'jpeg' | 'webp' | 'png';
+
 export interface AppSettings {
     snapshot: {
         resolutionScale: number; // 1-5, multiplier for snapshot resolution
+        compressionFormat: CompressionFormat; // Image compression format
+        compressionQuality: number; // 0.0-1.0, quality for lossy formats (jpeg/webp)
     };
     editor: {
         fontSize: number;
@@ -12,7 +16,9 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
     snapshot: {
-        resolutionScale: 3
+        resolutionScale: 3,
+        compressionFormat: 'jpeg', // JPEG for good compression
+        compressionQuality: 0.8 // 80% quality - good balance
     },
     editor: {
         fontSize: 16

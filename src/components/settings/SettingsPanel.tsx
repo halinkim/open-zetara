@@ -278,6 +278,49 @@ export function SettingsPanel() {
                                     <span style={{ fontSize: '13px', width: '30px' }}>{settings.snapshot.resolutionScale}x</span>
                                 </div>
                             </SettingItem>
+
+                            <SettingItem
+                                label="Snapshot Compression"
+                                description="Choose compression format for snapshots. JPEG/WebP reduce file sizes; PNG preserves quality."
+                            >
+                                <select
+                                    value={settings.snapshot.compressionFormat}
+                                    onChange={(e) => handleSettingChange('snapshot', 'compressionFormat', e.target.value)}
+                                    style={{
+                                        backgroundColor: 'var(--bg-primary)',
+                                        color: 'var(--text-primary)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '4px',
+                                        padding: '6px 10px',
+                                        minWidth: '100px',
+                                        fontSize: '13px'
+                                    }}
+                                >
+                                    <option value="jpeg">JPEG</option>
+                                    <option value="webp">WebP</option>
+                                    <option value="png">PNG</option>
+                                </select>
+                            </SettingItem>
+
+                            {settings.snapshot.compressionFormat !== 'png' && (
+                                <SettingItem
+                                    label="Compression Quality"
+                                    description="Quality level for lossy compression (0.0 = smallest, 1.0 = best quality)."
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <input
+                                            type="range"
+                                            min="0.1"
+                                            max="1.0"
+                                            step="0.1"
+                                            value={settings.snapshot.compressionQuality}
+                                            onChange={(e) => handleSettingChange('snapshot', 'compressionQuality', parseFloat(e.target.value))}
+                                            style={{ width: '120px' }}
+                                        />
+                                        <span style={{ fontSize: '13px', width: '35px' }}>{settings.snapshot.compressionQuality.toFixed(1)}</span>
+                                    </div>
+                                </SettingItem>
+                            )}
                         </SettingSection>
                     )}
 

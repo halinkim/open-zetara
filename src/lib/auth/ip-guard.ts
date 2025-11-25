@@ -18,7 +18,7 @@ function isIpInCidr(ip: string, cidr: string): boolean {
 export function isIpAllowed(request: NextRequest): boolean {
     const config = getConfig();
 
-    if (config.allowedIps.length === 0) {
+    if (!config.allowedIps || config.allowedIps.length === 0) {
         return true;
     }
 

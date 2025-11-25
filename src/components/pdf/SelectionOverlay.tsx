@@ -72,12 +72,12 @@ export function SelectionOverlay({ onSelectionComplete, dragData }: SelectionOve
                 const tempCanvas = document.createElement('canvas');
                 const dpr = window.devicePixelRatio || 1;
 
-                // Get snapshot scale from settings
-                const snapshotScale = settingsManager.getSettings().snapshot.resolutionScale;
+                // Get snapshot settings
+                const { resolutionScale, compressionFormat, compressionQuality } = settingsManager.getSettings().snapshot;
 
                 // Set temp canvas size to selection size (scaled by DPR and additional scale)
-                tempCanvas.width = selection.width * dpr * snapshotScale;
-                tempCanvas.height = selection.height * dpr * snapshotScale;
+                tempCanvas.width = selection.width * dpr * resolutionScale;
+                tempCanvas.height = selection.height * dpr * resolutionScale;
 
                 const ctx = tempCanvas.getContext('2d');
                 if (ctx) {
@@ -92,8 +92,17 @@ export function SelectionOverlay({ onSelectionComplete, dragData }: SelectionOve
                         selection.x * dpr, selection.y * dpr, selection.width * dpr, selection.height * dpr,
                         0, 0, tempCanvas.width, tempCanvas.height
                     );
-                    snapshot = tempCanvas.toDataURL('image/png');
-                    console.log('High-res snapshot captured (scale: ' + snapshotScale + '), length:', snapshot.length);
+
+                    // Apply compression based on format
+                    const mimeType = compressionFormat === 'jpeg' ? 'image/jpeg' :
+                        compressionFormat === 'webp' ? 'image/webp' : 'image/png';
+
+                    // For PNG, quality parameter is ignored; for JPEG/WebP, use quality setting
+                    snapshot = compressionFormat === 'png'
+                        ? tempCanvas.toDataURL(mimeType)
+                        : tempCanvas.toDataURL(mimeType, compressionQuality);
+
+                    console.log(`Snapshot captured (${compressionFormat} ${compressionFormat !== 'png' ? compressionQuality : ''}, scale: ${resolutionScale}), length:`, snapshot.length);
                 }
             } else {
                 console.warn('Canvas element not found for snapshot');
