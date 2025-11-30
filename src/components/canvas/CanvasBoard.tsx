@@ -72,6 +72,8 @@ export function CanvasBoard() {
         loadCanvas()
     }, [selectedPaperId, editor])
 
+    const lastSavedData = useRef<string>('')
+
     // Save canvas data when it changes
     useEffect(() => {
         if (!selectedPaperId) return
@@ -84,8 +86,15 @@ export function CanvasBoard() {
             try {
                 // Convert shapes back to old format
                 const oldItems = migrateNewToOld(state.shapes, state.assets)
+                const dataToSave = JSON.stringify(oldItems)
 
-                await api.canvas.save(selectedPaperId, JSON.stringify(oldItems))
+                // Check if data actually changed (ignoring camera/selection)
+                if (dataToSave === lastSavedData.current) {
+                    return
+                }
+
+                await api.canvas.save(selectedPaperId, dataToSave)
+                lastSavedData.current = dataToSave
             } catch (error) {
                 console.error('Error saving canvas:', error)
             }

@@ -188,10 +188,29 @@ export function useCanvasInteraction(
             e.preventDefault()
             e.stopPropagation()
             e.stopImmediatePropagation()
-            const delta = -e.deltaY * 0.001
+
+            const rect = container.getBoundingClientRect()
+            const mouseX = e.clientX - rect.left
+            const mouseY = e.clientY - rect.top
+
             const camera = editor.getCamera()
+            const delta = -e.deltaY * 0.001
+            const newZoom = Math.min(Math.max(camera.zoom + delta, 0.1), 5)
+
+            // Calculate world point under mouse before zoom
+            const worldX = (mouseX - camera.x) / camera.zoom
+            const worldY = (mouseY - camera.y) / camera.zoom
+
+            // Calculate new camera position to keep world point under mouse
+            // mouseX = newCameraX + worldX * newZoom
+            // newCameraX = mouseX - worldX * newZoom
+            const newX = mouseX - worldX * newZoom
+            const newY = mouseY - worldY * newZoom
+
             editor.setCamera({
-                zoom: Math.min(Math.max(camera.zoom + delta, 0.1), 5),
+                x: newX,
+                y: newY,
+                zoom: newZoom,
             })
         }
 

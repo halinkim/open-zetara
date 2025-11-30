@@ -17,8 +17,16 @@ export function StylePanel({ editor }: StylePanelProps) {
     // Helper to update style
     const updateStyle = (key: keyof StyleProps, value: any) => {
         selectedShapes.forEach(s => {
+            const newProps: any = { ...s.props, [key]: value }
+
+            // If we're updating the size preset, we must clear the specific fontSize
+            // because TextShapeUtil prioritizes fontSize over size
+            if (key === 'size') {
+                newProps.fontSize = undefined
+            }
+
             editor.updateShape(s.id, {
-                props: { ...s.props, [key]: value } as any
+                props: newProps
             })
         })
     }
